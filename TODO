@@ -1,0 +1,59 @@
+* use a preselected list of peers
+* BEGIN. DO THIS TOPDOWN not BOTTOMUP 
+* Go over git branching.......(avoid working on master)
+
+Milestones
+==========
+1. Connect with all specified peers, maintain happy connection [STEVE]?
+   > server (for accepting connections from peers)
+   > client (for connecting with the other peers)
+
+2. Everyone connecting using the client protocol [STEVE/CRAIG]?
+3. Parse and understand metainfo files. (parser.c?) [CRAIG]
+
+
+Specifics
+=========
+1. Be able to parse and understand metainfo files
+   > parse all relevant data in main
+   > write the API to handle such
+
+2. connection.c
+   > set connection timer
+   > sort peer connections based on stats
+   > update connection state
+   > update stats
+   > protocol handler 
+      ># entry point for all downloads
+      >init_connection
+      >set_connection
+      >start_fetch
+
+3. filepieces management
+   > keep a ds detailing which pieces have been found
+   > info on each piece
+     > piece_id
+     > completed
+     > selected for download
+   > info on all pieces
+     > remaining pieces
+     > completed pieces
+     > active pieces
+     > unavailable pieces
+     > DS of all the pieces we know of
+   > set remaining pieces
+   > set piece completed
+   > 
+
+4. peerconnections
+   > connect()
+   > bind()
+   > listen()
+   > accept()
+
+5. client_protocol
+   > announce
+   > download
+   > request
+
+6. logger
