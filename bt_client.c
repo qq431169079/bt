@@ -66,10 +66,18 @@ int main (int argc, char * argv[]){
   bt_args_t bt_args;
   be_node * node; // top node in the bencoding
   bt_info_t bt_info; //info be parsed from the be_node
-  int i;
+  int i=0;
+  int sockfd, clientfd;
+  struct sockaddr_in serv_addr, client_addr;
+  int num_peers = 0;
 
   parse_args(&bt_args, argc, argv);
 
+  
+  //count number of initial peers
+  while (bt_args.peers[i])
+    i++;
+  num_peers = i;
 
   if(bt_args.verbose){
     printf("Args:\n");
@@ -95,6 +103,15 @@ int main (int argc, char * argv[]){
 
   //main client loop
   printf("Starting Main Loop\n");
+
+  //open up the server connection
+  if ((sockfd = socket(AF_INET, SOCK_STREAM, 0)) < 0){
+      perror("socket");
+      exit(1);
+  }
+
+  //bind on the socket
+
   while(1){
 
     //try to accept incoming connection from new peer
