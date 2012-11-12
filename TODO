@@ -9,8 +9,8 @@ Milestones
    > client (for connecting with the other peers)
 
 2. Everyone connecting using the client protocol [STEVE/CRAIG]?
-3. Parse and understand metainfo files. (parser.c?) [CRAIG]
-
+3. Parse and understand metainfo files. (parser.c?) 
+4. File piece management [CRAIG]?
 
 Specifics
 =========
