@@ -53,7 +53,6 @@ void extract_attributes(be_node *node, bt_info_t *info){
         if (f_num_pieces > num_pieces)
           num_pieces += 1;
         info->num_pieces = num_pieces;
-
       }
       i++;
     }
