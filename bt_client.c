@@ -10,16 +10,62 @@
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <signal.h>
-
+#include <math.h>
 
 #include "bencode.h"
 #include "bt_lib.h"
 #include "bt_setup.h"
 
+/***********************************************************
+ * pass in a be_node and extract necessary attributes
+ * including the url of the torrent tracker and values for 
+ * suggested name of the file, piecelength, file size and hash
+ * for each of the pieces to check for corruption
+ * **********************************************************/
+void extract_attributes(be_node *node, bt_info_t *info){
+  int i=0, j=0;
+  char *key;
+  char *k;
+  if (node->type == BE_DICT){
+    while (node->val.d[i].key){
+      key = node->val.d[i].key;
+      if (strcmp(key, "announce") == 0){
+        strcpy(info->announce,node->val.d[i].val->val.s);
+      }
+
+      else if (strcmp(key, "info") == 0){
+        while (node->val.d[i].val->val.d[j].key){
+          k = node->val.d[i].val->val.d[j].key;
+          if (strcmp(k, "length") == 0)
+            info->length = node->val.d[i].val->val.d[j].val->val.i;
+          else if (strcmp(k, "name") == 0)
+            strcpy(info->name, node->val.d[i].val->val.d[j].val->val.s);
+          else if (strcmp(k, "piece length") == 0)
+            info->piece_length = node->val.d[i].val->val.d[j].val->val.i;
+          else if (strcmp(k, "pieces") == 0)
+            info->piece_hashes = (char **)node->val.d[i].val->val.d[j].val->val.s;
+          j++;
+        }
+        
+        //poor man's implementation of ceil
+        int num_pieces = ((float)info->length)/info->piece_length;
+        float f_num_pieces = ((float)info->length)/info->piece_length;
+        if (f_num_pieces > num_pieces)
+          num_pieces += 1;
+        info->num_pieces = num_pieces;
+
+      }
+      i++;
+    }
+  }
+
+}
+
 int main (int argc, char * argv[]){
 
   bt_args_t bt_args;
   be_node * node; // top node in the bencoding
+  bt_info_t bt_info; //info be parsed from the be_node
   int i;
 
   parse_args(&bt_args, argc, argv);
@@ -42,7 +88,7 @@ int main (int argc, char * argv[]){
 
   //read and parse the torent file
   node = load_be_node(bt_args.torrent_file);
-
+  extract_attributes(node, &bt_info);
   if(bt_args.verbose){
     be_dump(node);
   }
@@ -66,7 +112,7 @@ int main (int argc, char * argv[]){
     //with new potentially useful peers
     
     //update peers, 
-
+    break;
   }
 
   return 0;
