@@ -61,7 +61,7 @@ void __parse_peer(peer_t * peer, char * peer_st){
       (word && i < 3); 
       word = strtok(NULL,sep), i++){
 
-    printf("%d:%s\n",i,word);
+    //printf("%d:%s\n",i,word);
     switch(i){
     case 0://id
       ip = word;
@@ -136,7 +136,8 @@ void parse_args(bt_args_t * bt_args, int argc,  char * argv[]){
 
   bt_args->id = 0;
   bt_args->port = INIT_PORT;
-  
+  bt_args->leecher = 1; //leecher
+
   while ((ch = getopt(argc, argv, "hp:s:l:vI:b:")) != -1) {
     switch (ch) {
     case 'h': //help
@@ -156,6 +157,7 @@ void parse_args(bt_args_t * bt_args, int argc,  char * argv[]){
       strncpy(bt_args->log_file,optarg,FILE_NAME_MAX);
       break;
     case 'p': //peer
+      bt_args->leecher = 0;
       n_peers++;
       //check if we are going to overflow
       if(n_peers > MAX_CONNECTIONS){

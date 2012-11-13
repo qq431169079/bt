@@ -28,7 +28,8 @@
 /*initial port to try and open a listen socket on*/
 #define INIT_PORT 6667 
 
-#define HANDSHAKE_PORT 6699 //port for working the handshake on
+#define HANDSHAKE_PORT_A 6698 //port for working the handshake on
+#define HANDSHAKE_PORT_B 6699 //port for working the handshake on
 #define HANDSHAKE_SIZE 68 //68 bytes for the handshake protocol
 
 /*max port to try and open a listen socket on*/
@@ -86,6 +87,7 @@ typedef struct {
   int sockets[MAX_CONNECTIONS]; //Array of possible sockets
   struct pollfd poll_sockets[MAX_CONNECTIONS]; //Arry of pollfd for polling for input
   int port;
+  int leecher; //flag for whether I am a leecher or seeder
   /*set once torrent is parsed*/
   bt_info_t * bt_info; //the parsed info for this torrent
   
