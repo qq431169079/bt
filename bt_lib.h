@@ -28,6 +28,9 @@
 /*initial port to try and open a listen socket on*/
 #define INIT_PORT 6667 
 
+#define HANDSHAKE_PORT 6699 //port for working the handshake on
+#define HANDSHAKE_SIZE 68 //68 bytes for the handshake protocol
+
 /*max port to try and open a listen socket on*/
 #define MAX_PORT 6699
 
@@ -42,9 +45,13 @@
 #define BT_PIECE 7
 #define BT_CANCEL 8
 
+#define NAME_MAX 1024
 /*size (in bytes) of id field for peers*/
 #define ID_SIZE 20
+#define BUFSIZE 1024
 
+//other rand #defines
+#define ERR -1 //return when error encountered
 
 //holds information about a peer
 typedef struct peer{
@@ -78,8 +85,8 @@ typedef struct {
   unsigned int id; //this bt_clients id
   int sockets[MAX_CONNECTIONS]; //Array of possible sockets
   struct pollfd poll_sockets[MAX_CONNECTIONS]; //Arry of pollfd for polling for input
-  
-  /*set once torrent is parse*/
+  int port;
+  /*set once torrent is parsed*/
   bt_info_t * bt_info; //the parsed info for this torrent
   
 

@@ -24,7 +24,7 @@ void usage(FILE * file){
   fprintf(file,
           "bt-client [OPTIONS] file.torrent\n"
           "  -h            \t Print this help screen\n"
-          "  -b ip         \t Bind to this ip for incoming connections, ports\n"
+          "  -b port         \t Bind to this ip for incoming connections, ports\n"
           "                \t are selected automatically\n"
           "  -s save_file  \t Save the torrent in directory save_dir (dflt: .)\n"
           "  -l log_file   \t Save logs to log_filw (dflt: bt-client.log)\n"
@@ -135,8 +135,9 @@ void parse_args(bt_args_t * bt_args, int argc,  char * argv[]){
   }
 
   bt_args->id = 0;
+  bt_args->port = INIT_PORT;
   
-  while ((ch = getopt(argc, argv, "hp:s:l:vI:")) != -1) {
+  while ((ch = getopt(argc, argv, "hp:s:l:vI:b:")) != -1) {
     switch (ch) {
     case 'h': //help
       usage(stdout);
@@ -144,6 +145,9 @@ void parse_args(bt_args_t * bt_args, int argc,  char * argv[]){
       break;
     case 'v': //verbose
       bt_args->verbose = 1;
+      break;
+    case 'b': //port number
+      bt_args->port = atoi(optarg);
       break;
     case 's': //save file
       strncpy(bt_args->save_file,optarg,FILE_NAME_MAX);
