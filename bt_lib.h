@@ -162,6 +162,9 @@ void print_peer(peer_t *peer);
 /* check status on peers, maybe they went offline? */
 int check_peer(peer_t *peer);
 
+//send the msg to a log-file
+void LOGGER(char *msg, char *logfile);
+
 /*check if peers want to send me something*/
 int poll_peers(bt_args_t *bt_args);
 

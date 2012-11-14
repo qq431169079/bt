@@ -97,5 +97,41 @@ void print_peer(peer_t *peer){
   }
 }
 
+//save the piece to the file
+int save_piece(bt_args_t *args, bt_piece_t *piece){
+  int base; //base offset
+  int offset, length, bytes;
 
+  //get location within file
+  length = args->bt_info->piece_length;
+  base = length * piece->index;
+  offset = base + piece->begin;
+
+  if (fseek(args->f_save, offset, SEEK_SET) != 0){
+    fprintf(stderr, "failed to offset to correct position\n");
+    return ERR;
+  }
+
+  bytes = fwrite(piece->piece, 1, length, args->f_save);
+  return bytes;
+}
+
+//load the piece in the bt_piece_t struct
+int load_piece(bt_args_t *args, bt_piece_t *piece){
+  int base; //base offset
+  int offset, length, bytes;
+
+  //get location within file
+  length = args->bt_info->piece_length;
+  base = length * piece->index;
+  offset = base + piece->begin;
+
+  if (fseek(args->f_save, offset, SEEK_SET) != 0){
+    fprintf(stderr, "failed to offset to correct position\n");
+    return ERR;
+  }
+
+  bytes = fread(piece->piece, 1, length, args->f_save);
+  return bytes;
+}
 

@@ -56,6 +56,10 @@ void leecher(bt_args_t *args){
    struct sockaddr_in serv_addr, client_addr, handshake_addr;
    char data[BUFSIZE];
    char *msg = "Hello from Leecher";
+   fd_set listen_set;
+   int rv;
+   int connected = 0;
+   struct timeval tv; //waiting time
 
    addr_size = sizeof(struct sockaddr);
    //open the socket
@@ -73,25 +77,34 @@ void leecher(bt_args_t *args){
    printf("managed to bind\n");
    
    //set listen to up to 5 queued connections
-   if (listen(sockfd, 5) == -1){
+   if (listen(sockfd, MAX_CONNECTIONS) == -1){
      perror("listen");
      exit(1);
    }
    
    printf("listening\n");
-   //accept a client connection
-   if ((client_sock = accept(sockfd, (struct sockaddr *)&client_addr, &addr_size)) < 0){
-     perror("accept");
-     exit(1);
-   }
-   read(client_sock, data, 18);
-   printf("Received %s\n", data);
-   write(client_sock, msg, 18);
-   printf("Sent %s\n", msg);
-   
-   //done with handshaking
-   while(1){
-    //TODO major to do, make the above generic
+   //setup for non-blocking accepts
+   tv.tv_sec = 1;
+   tv.tv_usec = 0;
+
+   while(connected < MAX_CONNECTIONS){
+    //accept a client connection
+    FD_ZERO(&listen_set); //initialize
+    FD_SET(sockfd, &listen_set); //make sockfd a non-blocking listener
+    if (select(sockfd+1, &listen_set, (fd_set *)0, (fd_set *)0, &tv) > 0){
+      printf("accepted\n");
+      if ((client_sock = accept(sockfd, (struct sockaddr *)&client_addr, &addr_size))<0){
+        perror("accept");
+        exit(1);
+      }
+      read(client_sock, data, 18);
+      printf("Received %s\n", data);
+      write(client_sock, msg, 18);
+      printf("Sent %s\n", msg);
+      connected++;
+    }
+    //done with handshaking 
+    
     //try to accept incoming connection from new peer
        
     
@@ -107,7 +120,6 @@ void leecher(bt_args_t *args){
     //with new potentially useful peers
     
     //update peers, 
-    break;
   }
    
   close(client_sock); 
