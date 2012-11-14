@@ -19,9 +19,10 @@
 
 //seeder when we act as the client
 void seeder(bt_args_t *args){
-  int sockfd, msgsize;
+  int sockfd;
   struct sockaddr_in sockaddr, handshake_addr;
   char data[BUFSIZE];
+  char *msg = "Hello. From seeder";
   peer_t *peer;
   //open the socket
   if ((sockfd = socket(AF_INET, SOCK_STREAM, 0)) < 0){
@@ -38,13 +39,11 @@ void seeder(bt_args_t *args){
       perror("connect");
       exit(1);
   }
+   write(sockfd, msg, 18);
+   printf("Sent %s\n", msg);
+   read(sockfd, data, 18);
+   printf("Received %s\n", data);
  
-  printf("commencing handshake \n");
-  receive_handshake(handshake_addr, HANDSHAKE_PORT_A);
-  printf("handshake received\n");
-  while(send_handshake(sockaddr, HANDSHAKE_PORT_B) == -2);
-  printf("handshake sent\n");
-
   //close the socket
   close(sockfd);
 
@@ -56,10 +55,7 @@ void leecher(bt_args_t *args){
    socklen_t addr_size;
    struct sockaddr_in serv_addr, client_addr, handshake_addr;
    char data[BUFSIZE];
-   int bytes; //read bytes
-   int offset = 0; //offset to start writing at
-   int n_bytes = 0; //bytes sent in preamble
-
+   char *msg = "Hello from Leecher";
 
    addr_size = sizeof(struct sockaddr);
    //open the socket
@@ -88,20 +84,33 @@ void leecher(bt_args_t *args){
      perror("accept");
      exit(1);
    }
+   read(client_sock, data, 18);
+   printf("Received %s\n", data);
+   write(client_sock, msg, 18);
+   printf("Sent %s\n", msg);
    
-   printf("accepted connection\n");
-   printf("sending handshake \n");
-   send_handshake(client_addr, HANDSHAKE_PORT_A);
-   printf("handshake sent\n");
-   fill_listen_buff(&handshake_addr, 0); //misnomer, correct though :P
-   receive_handshake(handshake_addr, HANDSHAKE_PORT_B);
-   printf("handshake received\n");
-   
-   //after handshake is complete, what do we want to do?
+   //done with handshaking
+   while(1){
+    //TODO major to do, make the above generic
+    //try to accept incoming connection from new peer
+       
+    
+    //poll current peers for incoming traffic
+    //   write pieces to files
+    //   udpdate peers choke or unchoke status
+    //   responses to have/havenots/interested etc.
+    
+    //for peers that are not choked
+    //   request pieaces from outcoming traffic
 
+    //check livelenss of peers and replace dead (or useless) peers
+    //with new potentially useful peers
+    
+    //update peers, 
+    break;
+  }
    
-   
-   close(client_sock); 
+  close(client_sock); 
 }
 
 int main(int argc, char * argv[]){
