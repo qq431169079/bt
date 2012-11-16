@@ -47,6 +47,11 @@ int main (int argc, char * argv[]){
     be_dump(node);
   }
 
+  //testing trying to get information from be_node
+
+
+
+
   //main client loop
   printf("Starting Main Loop\n");
   while(1){
