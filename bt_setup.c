@@ -24,7 +24,7 @@ void usage(FILE * file){
   fprintf(file,
           "bt-client [OPTIONS] file.torrent\n"
           "  -h            \t Print this help screen\n"
-          "  -b ip         \t Bind to this ip for incoming connections, ports\n"
+          "  -b port         \t Bind to this ip for incoming connections, ports\n"
           "                \t are selected automatically\n"
           "  -s save_file  \t Save the torrent in directory save_dir (dflt: .)\n"
           "  -l log_file   \t Save logs to log_filw (dflt: bt-client.log)\n"
@@ -61,7 +61,7 @@ void __parse_peer(peer_t * peer, char * peer_st){
       (word && i < 3); 
       word = strtok(NULL,sep), i++){
 
-    printf("%d:%s\n",i,word);
+    //printf("%d:%s\n",i,word);
     switch(i){
     case 0://id
       ip = word;
@@ -135,8 +135,10 @@ void parse_args(bt_args_t * bt_args, int argc,  char * argv[]){
   }
 
   bt_args->id = 0;
-  
-  while ((ch = getopt(argc, argv, "hp:s:l:vI:")) != -1) {
+  bt_args->port = INIT_PORT;
+  bt_args->leecher = 1; //leecher
+
+  while ((ch = getopt(argc, argv, "hp:s:l:vI:b:")) != -1) {
     switch (ch) {
     case 'h': //help
       usage(stdout);
@@ -145,6 +147,9 @@ void parse_args(bt_args_t * bt_args, int argc,  char * argv[]){
     case 'v': //verbose
       bt_args->verbose = 1;
       break;
+    case 'b': //port number
+      bt_args->port = atoi(optarg);
+      break;
     case 's': //save file
       strncpy(bt_args->save_file,optarg,FILE_NAME_MAX);
       break;
@@ -152,6 +157,7 @@ void parse_args(bt_args_t * bt_args, int argc,  char * argv[]){
       strncpy(bt_args->log_file,optarg,FILE_NAME_MAX);
       break;
     case 'p': //peer
+      bt_args->leecher = 0;
       n_peers++;
       //check if we are going to overflow
       if(n_peers > MAX_CONNECTIONS){
