@@ -135,3 +135,22 @@ int load_piece(bt_args_t *args, bt_piece_t *piece){
   return bytes;
 }
 
+//get the bitfield
+int get_bitfield(bt_args_t *args, bt_bitfield_t * bitfield){
+  /*
+  FILE *fp;
+  int i;
+  int length = args->bt_info->piece_length;
+  char *piece = NULL;
+  char *fname = args->bt_info->name;
+  fp = fopen(fname, "r");
+
+  for (i=0;i<args->bt_info->num_pieces;i++){
+    fseek(fp, i*length, SEEK_SET);
+    fread(piece, 1, length, fp);
+    //TODO compare the hashes
+  }*/
+  return 0;
+
+}
+

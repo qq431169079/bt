@@ -176,16 +176,16 @@ int read_from_peer(peer_t * peer, bt_msg_t *msg);
 
 
 /* save a piece of the file */
-int save_piece(bt_args_t * bt_args, bt_piece_t * piece);
+int save_piece(bt_args_t *args, bt_piece_t * piece);
 
 /*load a piece of the file into piece */
-int load_piece(bt_args_t * bt_args, bt_piece_t * piece);
+int load_piece(bt_args_t *args, bt_piece_t * piece);
 
 /*load the bitfield into bitfield*/
-int get_bitfield(bt_args_t * bt_args, bt_bitfield_t * bitfield);
+int get_bitfield(bt_args_t *args, bt_bitfield_t * bitfield);
 
 /*compute the sha1sum for a piece, store result in hash*/
-int sha1_piece(bt_args_t * bt_args, bt_piece_t * piece, unsigned char * hash);
+int sha1_piece(bt_args_t *bt_args, bt_piece_t *piece, unsigned char *hash);
 
 
 /*Contact the tracker and update bt_args with info learned, 

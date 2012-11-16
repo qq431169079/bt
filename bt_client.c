@@ -21,7 +21,7 @@
 void seeder(bt_args_t *args){
   int sockfd;
   struct sockaddr_in sockaddr, handshake_addr;
-  char data[BUFSIZE];
+  char data[18];
   char *msg = "Hello. From seeder";
   peer_t *peer;
   //open the socket
@@ -97,6 +97,12 @@ void leecher(bt_args_t *args){
         perror("accept");
         exit(1);
       }
+      peer_t newpeer; //new peer to try out and 
+      if (handshake(client_sock, args->bt_info->name, &client_addr)){
+        printf("Handshake succeeded\n");
+      //DO HANDSHAKE HERE
+      //IF Handshake was successful, init new peer and all that shit else continue
+      //Write to the logfile
       read(client_sock, data, 18);
       printf("Received %s\n", data);
       write(client_sock, msg, 18);
