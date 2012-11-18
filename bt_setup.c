@@ -126,7 +126,7 @@ void parse_args(bt_args_t * bt_args, int argc,  char * argv[]){
 
   //null bt_info pointer, should be set once torrent file is read
   bt_args->bt_info = NULL;
-
+  bt_args->ip = NULL;
   //default lag file
   strncpy(bt_args->log_file,"bt-client.log",FILE_NAME_MAX);
   
@@ -134,7 +134,7 @@ void parse_args(bt_args_t * bt_args, int argc,  char * argv[]){
     bt_args->peers[i] = NULL; //initially NULL
   }
 
-  bt_args->id = 0;
+  //bt_args->id = NULL;
   bt_args->port = INIT_PORT;
   bt_args->leecher = 1; //leecher
 
@@ -172,7 +172,7 @@ void parse_args(bt_args_t * bt_args, int argc,  char * argv[]){
       __parse_peer(bt_args->peers[n_peers], optarg);
       break;
     case 'I':
-      bt_args->id = atoi(optarg);
+      //bt_args->id = atoi(optarg);
       break;
     default:
       fprintf(stderr,"ERROR: Unknown option '-%c'\n",ch);

@@ -6,6 +6,8 @@
 #include <netdb.h>
 #include <sys/socket.h>
 #include <sys/types.h>
+#include <time.h>
+#include <sys/time.h>
 
 #include <sys/stat.h>
 #include <arpa/inet.h>
@@ -97,6 +99,52 @@ void print_peer(peer_t *peer){
   }
 }
 
+/***********************************************************
+ * pass in a be_node and extract necessary attributes
+ * including the url of the torrent tracker and values for 
+ * suggested name of the file, piecelength, file size and hash
+ * for each of the pieces to check for corruption
+ * **********************************************************/
+int parse_bt_info(bt_info_t *info, be_node *node){
+  int i=0, j=0;
+  char *key;
+  char *k;
+  if (node->type == BE_DICT){
+    while (node->val.d[i].key){
+      key = node->val.d[i].key;
+      if (strcmp(key, "announce") == 0){
+        strcpy(info->announce,node->val.d[i].val->val.s);
+      }
+
+      else if (strcmp(key, "info") == 0){
+        while (node->val.d[i].val->val.d[j].key){
+          k = node->val.d[i].val->val.d[j].key;
+          if (strcmp(k, "length") == 0)
+            info->length = node->val.d[i].val->val.d[j].val->val.i;
+          else if (strcmp(k, "name") == 0)
+            strcpy(info->name, node->val.d[i].val->val.d[j].val->val.s);
+          else if (strcmp(k, "piece length") == 0)
+            info->piece_length = node->val.d[i].val->val.d[j].val->val.i;
+          else if (strcmp(k, "pieces") == 0)
+            info->piece_hashes = (char **)node->val.d[i].val->val.d[j].val->val.s;
+          j++;
+        }
+        
+        //poor man's implementation of ceil
+        int num_pieces = ((float)info->length)/info->piece_length;
+        float f_num_pieces = ((float)info->length)/info->piece_length;
+        if (f_num_pieces > num_pieces)
+          num_pieces += 1;
+        info->num_pieces = num_pieces;
+      }
+      i++;
+    }
+  }
+  return 0;
+
+}
+
+
 //save the piece to the file
 int save_piece(bt_args_t *args, bt_piece_t *piece){
   int base; //base offset
@@ -154,3 +202,51 @@ int get_bitfield(bt_args_t *args, bt_bitfield_t * bitfield){
 
 }
 
+
+//build the log message and write it out to the 
+//logfile
+void LOGGER(char *log, int type, char *msg){
+  time_t rawtime;
+  struct tm * timeinfo;
+  char *tv;
+  FILE *fp;
+
+  time( &rawtime );
+  timeinfo = localtime ( &rawtime );
+  tv = asctime(timeinfo);
+  tv[strlen(tv)-1] = '\0'; //get rid of trailing \n
+  switch(type){
+    case 0: //this is an initialization
+      fp = fopen(log, "w+");
+      fprintf(fp, "[%s] %s", tv, msg);
+      break;
+    default:
+      fp = fopen(log, "a+");
+      fprintf(fp, "[%s] %s", tv, msg);
+      break;
+
+
+
+  }
+  fclose(fp); //close the file
+  return;
+}
+
+//add a new peer to the swarm
+//calculate peer id and all here
+int add_peer(peer_t *peer, bt_args_t *args, char *ip, unsigned short port){
+  int i;
+  char id[ID_SIZE];
+  calc_id(ip, port, id);
+  init_peer(peer, id, ip, port);
+  
+  //look for free spot
+  for (i=0;i<MAX_CONNECTIONS;i++){
+    if (args->peers[i] == NULL){ //use this slot
+      args->peers[i] = peer;
+      return i;
+    }
+  }
+
+  return -1; //on failure
+}

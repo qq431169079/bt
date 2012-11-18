@@ -17,119 +17,7 @@
 #include "bt_setup.h"
 #include "bt_connect.h"
 
-//seeder when we act as the client
-void seeder(bt_args_t *args){
-  int sockfd;
-  struct sockaddr_in sockaddr, handshake_addr;
-  char data[18];
-  char *msg = "Hello. From seeder";
-  peer_t *peer;
-  //open the socket
-  if ((sockfd = socket(AF_INET, SOCK_STREAM, 0)) < 0){
-    perror("socket");
-    exit(1);
-  }
-  
-  printf("seeder socket established\n");
-  sockaddr = args->peers[1]->sockaddr;
-  peer = args->peers[1];
-  fill_listen_buff(&handshake_addr, 0); //misnomer, correct though :P
-  //set socket address and connect
-  if(connect(sockfd,(struct sockaddr *)&sockaddr, sizeof(struct sockaddr)) < 0){
-      perror("connect");
-      exit(1);
-  }
-   write(sockfd, msg, 18);
-   printf("Sent %s\n", msg);
-   read(sockfd, data, 18);
-   printf("Received %s\n", data);
- 
-  //close the socket
-  close(sockfd);
 
-}
-
-//leecher code, when we act as the server!
-void leecher(bt_args_t *args){
-   int sockfd, client_sock;
-   socklen_t addr_size;
-   struct sockaddr_in serv_addr, client_addr, handshake_addr;
-   char data[BUFSIZE];
-   char *msg = "Hello from Leecher";
-   fd_set listen_set;
-   int rv;
-   int connected = 0;
-   struct timeval tv; //waiting time
-
-   addr_size = sizeof(struct sockaddr);
-   //open the socket
-   if ((sockfd = socket(AF_INET, SOCK_STREAM, 0)) < 0){
-     perror("socket");
-     exit(1);
-   }
-
-   //optionally bind() the sock
-   fill_listen_buff(&serv_addr, args->port);
-   if (bind(sockfd, (struct sockaddr *)&serv_addr, addr_size) == -1){
-     perror("bind");
-     exit(1);
-   }
-   printf("managed to bind\n");
-   
-   //set listen to up to 5 queued connections
-   if (listen(sockfd, MAX_CONNECTIONS) == -1){
-     perror("listen");
-     exit(1);
-   }
-   
-   printf("listening\n");
-   //setup for non-blocking accepts
-   tv.tv_sec = 1;
-   tv.tv_usec = 0;
-
-   while(connected < MAX_CONNECTIONS){
-    //accept a client connection
-    FD_ZERO(&listen_set); //initialize
-    FD_SET(sockfd, &listen_set); //make sockfd a non-blocking listener
-    if (select(sockfd+1, &listen_set, (fd_set *)0, (fd_set *)0, &tv) > 0){
-      printf("accepted\n");
-      if ((client_sock = accept(sockfd, (struct sockaddr *)&client_addr, &addr_size))<0){
-        perror("accept");
-        exit(1);
-      }
-      peer_t newpeer; //new peer to try out and 
-      if (handshake(client_sock, args->bt_info->name, &client_addr)){
-        printf("Handshake succeeded\n");
-      //DO HANDSHAKE HERE
-      //IF Handshake was successful, init new peer and all that shit else continue
-      //Write to the logfile
-      read(client_sock, data, 18);
-      printf("Received %s\n", data);
-      write(client_sock, msg, 18);
-      printf("Sent %s\n", msg);
-      connected++;
-    }
-    //done with handshaking 
-    
-    //try to accept incoming connection from new peer
-       
-    
-    //poll current peers for incoming traffic
-    //   write pieces to files
-    //   udpdate peers choke or unchoke status
-    //   responses to have/havenots/interested etc.
-    
-    //for peers that are not choked
-    //   request pieaces from outcoming traffic
-
-    //check livelenss of peers and replace dead (or useless) peers
-    //with new potentially useful peers
-    
-    //update peers, 
-  }
-   
-  close(client_sock); 
-}
 
 int main(int argc, char * argv[]){
 
@@ -138,7 +26,15 @@ int main(int argc, char * argv[]){
   bt_info_t bt_info; //info be parsed from the be_node
   int i=0;
   int num_peers = 0;
-
+  int sockfd, client_sock;
+  struct sockaddr_in serv_addr, client_addr;
+  socklen_t addr_size;
+  struct timeval tv;
+  char *ip;
+  int index;
+  unsigned short port;
+  char id[ID_SIZE];
+  fd_set listen_set;
   parse_args(&bt_args, argc, argv);
 
   
@@ -162,26 +58,89 @@ int main(int argc, char * argv[]){
     
   }
 
+
+
   //read and parse the torent file
   node = load_be_node(bt_args.torrent_file);
-  extract_attributes(node, &bt_info);
+  parse_bt_info(&bt_info, node);
   bt_args.bt_info = &bt_info;
   if(bt_args.verbose){
     be_dump(node);
   }
+  
+  //initialize listening socket
+  addr_size = sizeof(struct sockaddr);
+  //open the socket
+  if ((sockfd = socket(AF_INET, SOCK_STREAM, 0)) < 0){
+    perror("socket");
+    exit(1);
+  }
+
+  //get my own IP
+  fill_listen_buff(&serv_addr, bt_args.port);
+  bt_args.ip = inet_ntoa(serv_addr.sin_addr); //get the IP
+  
+  char init_stats[80];
+  LOGGER(bt_args.log_file, 0, "Starting the BitTorrent Client\n");
+  sprintf(init_stats, "Listening on IP:port is %s:%d\n", bt_args.ip, bt_args.port);
+  LOGGER(bt_args.log_file, 1, init_stats);
+  //get own ID
+  calc_id(bt_args.ip, bt_args.port, id);
+  memcpy(bt_args.id, id, 20);
+
+  if (bind(sockfd, (struct sockaddr *)&serv_addr, addr_size) == -1){
+    perror("bind");
+    exit(1);
+  }
+  printf("managed to bind\n");
+   
+  //set listen to up to 5 queued connections
+  if (listen(sockfd, MAX_CONNECTIONS) == -1){
+    perror("listen");
+    exit(1);
+  }
+
+  //send handshake
+  handshake_all(&bt_args);
 
   //main client loop
   printf("Starting Main Loop\n");
- 
-  if (bt_args.leecher)
-    leecher(&bt_args);
-  else
-    seeder(&bt_args);
-
+  tv.tv_sec = 0;
+  tv.tv_usec = 50;
   while(1){
+    //accept a client connection
+    FD_ZERO(&listen_set); //initialize
+    FD_SET(sockfd, &listen_set); //make sockfd a non-blocking listener
+    if (select(sockfd+1, &listen_set, (fd_set *)0, (fd_set *)0, &tv) > 0){
+      printf("accepted\n");
+      if ((client_sock = accept(sockfd, (struct sockaddr *)&client_addr, &addr_size))<0){
+        perror("accept");
+        continue;
+      }
+     
+      else{
+        ip = inet_ntoa(client_addr.sin_addr);
+        sprintf(init_stats, "CONNECTION ACCEPTED from peer: %s\n", ip);
+        LOGGER(bt_args.log_file, 1, init_stats);
+      }
+      
+      if (leecher_handshake(client_sock, bt_args.bt_info->name, bt_args.id,&client_addr)){
+        port = ntohs(client_addr.sin_port);
+        sprintf(init_stats, "HANDSHAKE SUCCESS with peer:%s on port:%d\n", ip, port);
+        LOGGER(bt_args.log_file, 1, init_stats);
+        peer_t *newpeer = (peer_t *)malloc(sizeof(peer_t)); //new peer to try out 
+        index = add_peer(newpeer, &bt_args, ip, port);
+        if (index != -1){
+          //store the sockfd at that index
+          bt_args.sockets[index] = client_sock;
+        }
+        else{
+          //reclaim the memory
+          free(newpeer);
+        }
 
-    //try to accept incoming connection from new peer
-       
+      }
+    }
     
     //poll current peers for incoming traffic
     //   write pieces to files
@@ -195,7 +154,6 @@ int main(int argc, char * argv[]){
     //with new potentially useful peers
     
     //update peers, 
-    break;
   }
 
   return 0;
