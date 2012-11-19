@@ -332,22 +332,39 @@ int load_piece(bt_args_t *args, bt_piece_t *piece){
 }
 
 //get the bitfield
-int get_bitfield(bt_args_t *args, bt_bitfield_t * bitfield){
-  /*
+int get_bitfield(bt_args_t *args, bt_bitfield_t * bfield){
   FILE *fp;
   int i;
   int length = args->bt_info->piece_length;
   char *piece = NULL;
   char *fname = args->bt_info->name;
-  fp = fopen(fname, "r");
+  //need place to store piece hash of current file
+  unsigned char result_hash[20];
 
-  for (i=0;i<args->bt_info->num_pieces;i++){
+  //determining bitfield size
+  //note: assuming size is the number of pieces, rather than memory size
+  bfield->size = args->bt_info->num_pieces;
+  
+  //allocating memory for bitfield array within bitfield strcut
+  bfield->bitfield = (char *) malloc(bfield->size);
+  
+  //opening file for reading
+  fp = fopen(fname, "r");
+  
+  //check hashed pieces of file against piece hashes of torrent file
+  for (i=0; i<bitfield->size; i++){
     fseek(fp, i*length, SEEK_SET);
     fread(piece, 1, length, fp);
-    //TODO compare the hashes
-  }*/
+    //compare the hashes
+    SHA1((unsigned char *) piece, length, result_hash)
+    if (memcmp(result_hash, args->bt_info->piece_hashes[i], 20) == 0){
+      bfield->bitfield[i] = "1";
+    } 
+    else {
+      bfield->bitfield[i] = "0";
+    }
+  }
   return 0;
-
 }
 
 int sha1_piece(bt_args_t *args, bt_piece_t* piece, unsigned char * hash) {

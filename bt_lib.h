@@ -135,7 +135,6 @@ typedef struct bt_msg{
 } bt_msg_t;
 
 
-
 int parse_bt_info(bt_info_t *info, be_node *node);
 
 /*choose a random id for this node*/
@@ -181,7 +180,7 @@ int save_piece(bt_args_t * bt_args, bt_piece_t * piece);
 int load_piece(bt_args_t * bt_args, bt_piece_t * piece);
 
 /*load the bitfield into bitfield*/
-int get_bitfield(bt_args_t * bt_args, bt_bitfield_t * bitfield);
+int get_bitfield(bt_args_t * bt_args, bt_bitfield_t * bfield);
 
 /*compute the sha1sum for a piece, store result in hash*/
 int sha1_piece(bt_args_t * bt_args, bt_piece_t * piece, unsigned char * hash);
