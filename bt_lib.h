@@ -45,12 +45,17 @@
 /*size (in bytes) of id field for peers*/
 #define ID_SIZE 20
 
+//other rand #defines
+#define ERR -1 //return when error encountered
+#define TRUE 1
+#define FALSE 0
 
 //holds information about a peer
 typedef struct peer{
   unsigned char id[ID_SIZE]; //the peer id
   unsigned short port; //the port to connect n
   struct sockaddr_in sockaddr; //sockaddr for peer
+  int sockfd; //file descriptor for communication port
   int choked; //peer choked?
   int interested; //peer interested?
 }peer_t;
@@ -75,11 +80,13 @@ typedef struct {
   char log_file[FILE_NAME_MAX];//the log file
   char torrent_file[FILE_NAME_MAX];// *.torrent file
   peer_t * peers[MAX_CONNECTIONS]; // array of peer_t pointers
-  unsigned int id; //this bt_clients id
+  char id[ID_SIZE]; //this bt_clients id
   int sockets[MAX_CONNECTIONS]; //Array of possible sockets
   struct pollfd poll_sockets[MAX_CONNECTIONS]; //Arry of pollfd for polling for input
-  
-  /*set once torrent is parse*/
+  char *ip;
+  int port;
+  int leecher; //flag for whether I am a leecher or seeder
+  /*set once torrent is parsed*/
   bt_info_t * bt_info; //the parsed info for this torrent
   
 
@@ -129,15 +136,13 @@ typedef struct bt_msg{
 
 
 
-
-
-int parse_bt_info(bt_info_t * bt_info, be_node * node);
+int parse_bt_info(bt_info_t *info, be_node *node);
 
 /*choose a random id for this node*/
 unsigned int select_id();
 
 /*propogate a peer_t struct and add it to the bt_args structure*/
-int add_peer(peer_t *peer, bt_args_t *bt_args, char * hostname, unsigned short port);
+int add_peer(peer_t *peer, bt_args_t *bt_args, char *ip, unsigned short port);
 
 /*drop an unresponsive or failed peer from the bt_args*/
 int drop_peer(peer_t *peer, bt_args_t *bt_args);
@@ -156,6 +161,9 @@ void print_peer(peer_t *peer);
 /* check status on peers, maybe they went offline? */
 int check_peer(peer_t *peer);
 
+//send the msg to a log-file
+void LOGGER(char *log, int type, char *msg);
+void INIT_LOGGER(char *log);
 /*check if peers want to send me something*/
 int poll_peers(bt_args_t *bt_args);
 
