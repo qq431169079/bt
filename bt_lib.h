@@ -28,17 +28,13 @@
 /*initial port to try and open a listen socket on*/
 #define INIT_PORT 6667 
 
-#define HANDSHAKE_PORT_A 6698 //port for working the handshake on
-#define HANDSHAKE_PORT_B 6699 //port for working the handshake on
-#define HANDSHAKE_SIZE 68 //68 bytes for the handshake protocol
-
 /*max port to try and open a listen socket on*/
 #define MAX_PORT 6699
 
 /*Different BitTorrent Message Types*/
 #define BT_CHOKE 0
 #define BT_UNCHOKE 1
-#define BT_INTERSTED 2
+#define BT_INTERESTED 2
 #define BT_NOT_INTERESTED 3
 #define BT_HAVE 4
 #define BT_BITFILED 5
@@ -46,13 +42,9 @@
 #define BT_PIECE 7
 #define BT_CANCEL 8
 
-#define NAME_MAX 1024
 /*size (in bytes) of id field for peers*/
 #define ID_SIZE 20
-#define BUFSIZE 1024
 
-//other rand #defines
-#define ERR -1 //return when error encountered
 
 //holds information about a peer
 typedef struct peer{
@@ -86,9 +78,8 @@ typedef struct {
   unsigned int id; //this bt_clients id
   int sockets[MAX_CONNECTIONS]; //Array of possible sockets
   struct pollfd poll_sockets[MAX_CONNECTIONS]; //Arry of pollfd for polling for input
-  int port;
-  int leecher; //flag for whether I am a leecher or seeder
-  /*set once torrent is parsed*/
+  
+  /*set once torrent is parse*/
   bt_info_t * bt_info; //the parsed info for this torrent
   
 
@@ -102,7 +93,7 @@ typedef struct {
 typedef struct {
   char * bitfield; //bitfield where each bit represents a piece that
                    //the peer has or doesn't have
-  size_t size;//size of the bitfiled
+  size_t size;//size of the bitfield
 } bt_bitfield_t;
 
 typedef struct{
@@ -137,6 +128,9 @@ typedef struct bt_msg{
 } bt_msg_t;
 
 
+
+
+
 int parse_bt_info(bt_info_t * bt_info, be_node * node);
 
 /*choose a random id for this node*/
@@ -162,9 +156,6 @@ void print_peer(peer_t *peer);
 /* check status on peers, maybe they went offline? */
 int check_peer(peer_t *peer);
 
-//send the msg to a log-file
-void LOGGER(char *msg, char *logfile);
-
 /*check if peers want to send me something*/
 int poll_peers(bt_args_t *bt_args);
 
@@ -176,16 +167,16 @@ int read_from_peer(peer_t * peer, bt_msg_t *msg);
 
 
 /* save a piece of the file */
-int save_piece(bt_args_t *args, bt_piece_t * piece);
+int save_piece(bt_args_t * bt_args, bt_piece_t * piece);
 
 /*load a piece of the file into piece */
-int load_piece(bt_args_t *args, bt_piece_t * piece);
+int load_piece(bt_args_t * bt_args, bt_piece_t * piece);
 
 /*load the bitfield into bitfield*/
-int get_bitfield(bt_args_t *args, bt_bitfield_t * bitfield);
+int get_bitfield(bt_args_t * bt_args, bt_bitfield_t * bitfield);
 
 /*compute the sha1sum for a piece, store result in hash*/
-int sha1_piece(bt_args_t *bt_args, bt_piece_t *piece, unsigned char *hash);
+int sha1_piece(bt_args_t * bt_args, bt_piece_t * piece, unsigned char * hash);
 
 
 /*Contact the tracker and update bt_args with info learned, 
