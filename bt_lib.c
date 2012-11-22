@@ -361,7 +361,7 @@ int get_bitfield(bt_args_t *args, bt_bitfield_t * bfield){
   
   //make sure all initial entries in bitfield are 0
   for (i=0; i<bSize; i++) {
-    bfield->bitfield[i] == bfield->bitfield[i] && 0x0;
+    bfield->bitfield[i] == bfield->bitfield[i] && 0x00;
   }
   //opening file for reading
   fp = fopen(fname, "r");
