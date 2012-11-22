@@ -155,17 +155,20 @@ int read_from_peer(peer_t * peer, bt_msg_t *msg) {
     //just a keep alive message
     // 
   else:
-    switch(msg->bt_type)
+    switch(atoi(msg->bt_type))
     {
-      case '0':
-        //choked
-
-      case '1':
-        //unchoked
-      case '2':
-        //interested
-      case '3':
+      case BT_CHOKE:
+        //choke
+        peer->choked = 1;
+      case BT_UNCHOKE:
+        //unchoke
+        peer->choked = 0;
+      case BT_INTEREST:
+        //interest
+        peer->interested = 1;
+      case BT_NOT_INTERESTED:
         //not interested
+        peer->interested = 0;
       case '4':
         //have
         //message indicating a peer has completed downloading a piece
@@ -340,14 +343,26 @@ int get_bitfield(bt_args_t *args, bt_bitfield_t * bfield){
   char *fname = args->bt_info->name;
   //need place to store piece hash of current file
   unsigned char result_hash[20];
+  int bSize;
 
   //determining bitfield size
   //note: assuming size is the number of pieces, rather than memory size
   bfield->size = args->bt_info->num_pieces;
   
+  //calculating space necessary for bitfield (using num_pieces instead
+  //of size because of types, size is size_t)
+  bSize = (args->bt_info->num_pieces)/8; //integer division
+  if (((args->bt_info->num_pieces) % 8) > 0) {
+    bSize += 1;
+  }
+
   //allocating memory for bitfield array within bitfield strcut
-  bfield->bitfield = (char *) malloc(bfield->size);
+  bfield->bitfield = (char *) malloc(bSize);
   
+  //make sure all initial entries in bitfield are 0
+  for (i=0; i<bSize; i++) {
+    bfield->bitfield[i] == bfield->bitfield[i] && 0x0;
+  }
   //opening file for reading
   fp = fopen(fname, "r");
   
@@ -356,12 +371,16 @@ int get_bitfield(bt_args_t *args, bt_bitfield_t * bfield){
     fseek(fp, i*length, SEEK_SET);
     fread(piece, 1, length, fp);
     //compare the hashes
-    SHA1((unsigned char *) piece, length, result_hash)
+    SHA1((unsigned char *) piece, length, result_hash);
     if (memcmp(result_hash, args->bt_info->piece_hashes[i], 20) == 0){
-      bfield->bitfield[i] = "1";
+      bfield->bitfield[i/8] = (bitfield[i/8] << 1) + 1;  //there is an unnecessary left shift 
+                                                         //that occurs for first piece check
+                                                         //of each new element in bitfield array
+                                                         //TODO worth fixing???
+                                                         //same for else statement
     } 
     else {
-      bfield->bitfield[i] = "0";
+      bfield->bitfield[i/8] = (bitfield[i/8] << 1);
     }
   }
   return 0;
