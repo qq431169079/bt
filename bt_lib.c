@@ -40,10 +40,6 @@ unsigned int select_id() {
   return 0;
 }
 
-int add_peer(peer_t *peer, bt_args_t *bt_args, char * hostname, unsigned short port) {
-  //TODO
-  return 0;
-}
 
 int drop_peer(peer_t *peer, bt_args_t *bt_args) {
   //TODO
@@ -150,7 +146,7 @@ int read_from_peer(peer_t * peer, bt_msg_t *msg) {
   //IN THE STRUCT PEER!!!  type peer_t
   //
   //
-   
+  /* 
   if(msg->length == 0)
     //just a keep alive message
     // 
@@ -245,8 +241,9 @@ int read_from_peer(peer_t * peer, bt_msg_t *msg) {
         //cancel
         //peer indicating it no longers wants a piece
     }
-      
+    */     
   return 0;
+}
 /***********************************************************
  * pass in a be_node and extract necessary attributes
  * including the url of the torrent tracker and values for 
@@ -257,6 +254,9 @@ int parse_bt_info(bt_info_t *info, be_node *node){
   int i=0, j=0;
   char *key;
   char *k;
+  char *pieces;
+  char **hashes; //array of the hashes for each piece
+
   if (node->type == BE_DICT){
     while (node->val.d[i].key){
       key = node->val.d[i].key;
@@ -274,19 +274,29 @@ int parse_bt_info(bt_info_t *info, be_node *node){
           else if (strcmp(k, "piece length") == 0)
             info->piece_length = node->val.d[i].val->val.d[j].val->val.i;
           else if (strcmp(k, "pieces") == 0)
-            info->piece_hashes = (char **)node->val.d[i].val->val.d[j].val->val.s;
+            pieces = (char *)node->val.d[i].val->val.d[j].val->val.s;
           j++;
         }
         
-        //poor man's implementation of ceil
-        int num_pieces = ((float)info->length)/info->piece_length;
-        float f_num_pieces = ((float)info->length)/info->piece_length;
-        if (f_num_pieces > num_pieces)
-          num_pieces += 1;
-        info->num_pieces = num_pieces;
       }
       i++;
     }
+    
+    //poor man's implementation of ceil
+    int num_pieces = ((float)info->length)/info->piece_length;
+    float f_num_pieces = ((float)info->length)/info->piece_length;
+    if (f_num_pieces > num_pieces)
+      num_pieces += 1;
+    info->num_pieces = num_pieces;
+    
+    //TODO reclaim all this dynamic memory when we close the application
+    hashes = (char **)malloc(sizeof(char *)*num_pieces);
+    for(i=0;i<num_pieces;i++){
+      hashes[i] = (char *)malloc(HASH_PIECE);
+      strncpy(hashes[i], (pieces + i*HASH_PIECE), HASH_PIECE);
+    }
+    info->piece_hashes = hashes;
+
   }
   return 0;
 
@@ -332,6 +342,7 @@ int load_piece(bt_args_t *args, bt_piece_t *piece){
 }
 
 //get the bitfield
+/*
 int get_bitfield(bt_args_t *args, bt_bitfield_t * bfield){
   FILE *fp;
   int i;
@@ -365,7 +376,7 @@ int get_bitfield(bt_args_t *args, bt_bitfield_t * bfield){
     }
   }
   return 0;
-}
+}*/
 
 int sha1_piece(bt_args_t *args, bt_piece_t* piece, unsigned char * hash) {
   SHA1((unsigned char *) piece, sizeof(bt_piece_t), hash);
@@ -375,6 +386,7 @@ int sha1_piece(bt_args_t *args, bt_piece_t* piece, unsigned char * hash) {
 int contact_tracker(bt_args_t  * bt_args) {
   //TODO
   return 0;
+}
 
 //build the log message and write it out to the 
 //logfile

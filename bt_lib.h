@@ -49,6 +49,8 @@
 #define ERR -1 //return when error encountered
 #define TRUE 1
 #define FALSE 0
+#define NAME_MAX 1024
+#define HASH_PIECE 20
 
 //holds information about a peer
 typedef struct peer{

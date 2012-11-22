@@ -5,6 +5,7 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#include <sys/poll.h>
 
 #include "bt_connect.h"
 #include "bt_lib.h"
@@ -108,7 +109,7 @@ int __verify__(char *fname, char first, char *name, char *chaff, char *id, char 
   }
 
   char id_val[20];
-  calc_id(ip, port, id_val);
+  calc_id(ip, INIT_PORT, id_val);
   
   //if (memcmp(id, id_val, 20) != 0){
   //   printf("Failed on the hash\n");
@@ -215,11 +216,13 @@ void handshake_all(bt_args_t *args){
       port = ntohs(handshake_addr.sin_port);
       sprintf(init_stats, "HANDSHAKE INIT to peer: %s on port: %d\n", ip, port);
       LOGGER(args->log_file, 1, init_stats);
-      //send_handshake(sockfd, args->bt_info->name, &handshake);
       if (seeder_handshake(sockfd, fname, args->id, handshake_addr)){ 
         sprintf(init_stats, "HANDSHAKE SUCCESS from peer: %s on port: %d\n", ip, port);
         LOGGER(args->log_file, 1, init_stats);
         args->sockets[i] = sockfd;
+        //send our bitfield here
+        //args->poll_sockets[i].fd = sockfd;
+        //args->poll_sockets[i].events = POLLIN;
       }
       else{
         sprintf(init_stats, "HANDSHAKE DECLINED from peer: %s on port: %d\n", ip, port);

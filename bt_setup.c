@@ -158,7 +158,6 @@ void parse_args(bt_args_t * bt_args, int argc,  char * argv[]){
       break;
     case 'p': //peer
       bt_args->leecher = 0;
-      n_peers++;
       //check if we are going to overflow
       if(n_peers > MAX_CONNECTIONS){
         fprintf(stderr,"ERROR: Can only support %d initial peers",MAX_CONNECTIONS);
@@ -170,6 +169,7 @@ void parse_args(bt_args_t * bt_args, int argc,  char * argv[]){
 
       //parse peers
       __parse_peer(bt_args->peers[n_peers], optarg);
+      n_peers++;
       break;
     case 'I':
       //bt_args->id = atoi(optarg);

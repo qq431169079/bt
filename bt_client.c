@@ -11,6 +11,7 @@
 #include <sys/types.h>
 #include <signal.h>
 #include <math.h>
+#include <sys/poll.h>
 
 #include "bencode.h"
 #include "bt_lib.h"
@@ -20,7 +21,6 @@
 
 
 int main(int argc, char * argv[]){
-
   bt_args_t bt_args;
   be_node * node; // top node in the bencoding
   bt_info_t bt_info; //info be parsed from the be_node
@@ -32,6 +32,7 @@ int main(int argc, char * argv[]){
   struct timeval tv;
   char *ip;
   int index;
+  //int pollrv; //return value from the call to poll()
   unsigned short port;
   char id[ID_SIZE];
   fd_set listen_set;
@@ -132,15 +133,36 @@ int main(int argc, char * argv[]){
         index = add_peer(newpeer, &bt_args, ip, port);
         if (index != -1){
           //store the sockfd at that index
+          //send out bitfield here
           bt_args.sockets[index] = client_sock;
+          //bt_args.poll_socket[index].fd = client_sock;
+          //bt_args.poll_socket[index].events = POLLIN;
         }
         else{
-          //reclaim the memory
-          free(newpeer);
+          free(newpeer); //reclaim the memory
+          close(client_sock);//server the connection
         }
 
       }
     }
+    
+    /*
+    pollrv = poll(bt_args.poll_sockets, MAX_CONNECTIONS, 50); //50ms timeout
+    if (pollrv == -1){
+      perror("poll"); //we got a problem from poll
+    }
+
+    else if (pollrv != 0){ //timeout didn't occur
+      //check for events on all the fds
+      int j;
+      for (j=0;j<MAX_CONNECTIONS;j++){
+        if (bt_args.poll_sockets[j].revents & POLLIN){
+          //get message and process it
+         }
+       }
+     }
+
+    */
     
     //poll current peers for incoming traffic
     //   write pieces to files
