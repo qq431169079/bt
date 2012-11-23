@@ -18,9 +18,6 @@
 #include "bt_lib.h"
 #include "bt_setup.h"
 
-
-//NOTE: parse_bt_info is in bt_connect i believe.. called by different name
-
 void calc_id(char * ip, unsigned short port, char *id){
   char data[256];
   int len;
@@ -111,6 +108,19 @@ void print_peer(peer_t *peer){
   }
 }
 
+//send message to all peers
+int send_all(bt_args_t *args, bt_msg_t *msg){
+  int i;
+  for (i=0;i<MAX_CONNECTIONS;i++){
+    //check if peer is good and then send out to that peer
+    //TODO check for all that choke and interested shit
+    if(args->peers[i]){ //is this a valid peer
+      send_to_peer(args->peers[i], msg);
+    }
+  }
+  return 0;
+}
+
 int check_peer(peer_t *peer) {
   //TODO
   //need to figure out how this is going to work
@@ -125,12 +135,18 @@ int poll_peers(bt_args_t *bt_args) {
   return 0;
 }
 
-int send_to_peer(peer_t * peer, bt_msg_t * msg) {
-  //TODO
-  return 0;
+//send a message to peer
+int send_to_peer(peer_t *peer, bt_msg_t *msg) {
+  int bytes;
+  bytes = write(peer->sockfd, 
+                msg,
+                sizeof(bt_msg_t));
+  if (bytes < 0)
+    perror("send_to_peer: write()");
+  return bytes;
 }
 
-int read_from_peer(peer_t * peer, bt_msg_t *msg) {
+int read_from_peer(peer_t *peer, bt_msg_t *msg, bt_args_t *args) {
   //TODO
   //note: when writing the pseudocode here I basically
   //unintenionally ignored the fact that some peers
@@ -146,13 +162,78 @@ int read_from_peer(peer_t * peer, bt_msg_t *msg) {
   //IN THE STRUCT PEER!!!  type peer_t
   //
   //
-  /* 
-  if(msg->length == 0)
+  bt_msg_t response; //reusable response message
+  char *logfile = args->log_file; 
+  char log_msg[80]; //log message buffer
+  char *ip = inet_ntoa(peer->sockaddr.sin_addr); 
+  read(peer->sockfd, msg, sizeof(bt_msg_t)); 
+  int piece_index;
+  bt_piece_t piece; //this little piece of ....
+  if(msg->length == 0){
+    sprintf(log_msg, "MESSAGE RECEIVED :{KEEP_ALIVE} from %s\n", ip);
+    LOGGER(logfile, 1, log_msg);
     //just a keep alive message
-    // 
-  else:
-    switch(msg->bt_type)
-    {
+    return 0;
+  }
+  else{
+    switch(msg->bt_type){
+      case BT_BITFIELD:
+        printf("received bitfield message\n");
+        sprintf(log_msg, "MESSAGE RECEIVED :{BITFIELD} from %s\n", ip);
+        LOGGER(logfile, 1, log_msg);
+        peer->bitfield = msg->payload.bitfield; //backup the bitfield
+        peer->choked = 0;
+        peer->interested = 1;
+        //TODO: if peer has pieces we dont have, set the peer to be unchoked
+        //      and interested
+        break;
+      case BT_REQUEST:
+        piece_index = msg->payload.request.index;
+        printf("received a request for a piece\n");
+        sprintf(log_msg, "MESSAGE RECEIVED :{REQUEST} for piece:%d from %s\n",
+                piece_index, ip);
+        LOGGER(logfile, 1, log_msg);
+        
+        //TODO: if we have the piece, send out the piece
+        if (own_piece(args, piece_index)){
+          printf("sending out response for piece\n");
+          sprintf(log_msg, "MESSAGE RESPONSE :{PIECE} for piece:%d to %s\n",
+                  piece_index, ip);
+          LOGGER(logfile, 1, log_msg);
+          load_piece(args, &piece); //load the piece if we have it
+
+          response.length = 2 + sizeof(bt_piece_t);
+          response.bt_type = BT_PIECE;
+          response.payload.piece = piece;
+          send_to_peer(peer, &response);
+        }
+        break;
+      
+      case BT_PIECE:
+        piece_index = msg->payload.piece.index;
+        printf("received a piece of the cake\n");
+        sprintf(log_msg, "MESSAGE RECEIVED :{PIECE} received file piece:%d from %s\n",
+                piece_index, ip);
+        LOGGER(logfile, 1, log_msg);
+        
+        //if we already have the piece, just ignore the message
+        if (own_piece(args, piece_index)){
+           sprintf(log_msg, "MESSAGE RECEIVED :{PIECE} received file piece:%d from %s\n",
+                piece_index, ip);
+           LOGGER(logfile, 1, log_msg);
+           //TODO print stats here
+           piece = msg->payload.piece;
+           save_piece(args, &piece);
+
+        }
+        break;
+
+      default:
+        printf("unknown message type\n");
+        break;
+    }
+
+      /*
       case '0':
         //choked
 
@@ -239,11 +320,43 @@ int read_from_peer(peer_t * peer, bt_msg_t *msg) {
 
       case '8':
         //cancel
-        //peer indicating it no longers wants a piece
+        //peer indicating it no longers wants a piece*/
     }
-    */     
+    
   return 0;
 }
+
+//local implementation of ceil 
+//The real ceil kinda sucks, so we opted to write our own
+int ceiling(int dividend, int divisor){
+  int result = ((float)dividend)/divisor;
+  float f_result = ((float)dividend)/divisor;
+  if (f_result > result)
+    result++;
+  return result;
+
+}
+
+//get the piece to start downloading
+//return -1 when we have every piece
+int select_download_piece(bt_args_t *args){
+  int i,j, index;
+  int bytes = ceiling(args->bitfield.size, 8); //number of character bytes
+  char *bitfield = args->bitfield.bitfield;
+  for(i=0;i< bytes;i++){
+    for(j=0;j<8;j++){
+      index = j + (i*8);
+      if (index >= args->bitfield.size) //stopping condition
+        continue;
+
+      //search for a zero bit and use that as index
+      if ((bitfield[i] & (1 << (7-j))) == 0)
+        return index;
+    }
+  }
+  return -1; //we now have all the pieces we need
+}
+
 /***********************************************************
  * pass in a be_node and extract necessary attributes
  * including the url of the torrent tracker and values for 
@@ -288,12 +401,11 @@ int parse_bt_info(bt_info_t *info, be_node *node){
     if (f_num_pieces > num_pieces)
       num_pieces += 1;
     info->num_pieces = num_pieces;
-    
     //TODO reclaim all this dynamic memory when we close the application
     hashes = (char **)malloc(sizeof(char *)*num_pieces);
     for(i=0;i<num_pieces;i++){
-      hashes[i] = (char *)malloc(HASH_PIECE);
-      strncpy(hashes[i], (pieces + i*HASH_PIECE), HASH_PIECE);
+      hashes[i] = (char *)malloc(HASH_UNIT);
+      strncpy(hashes[i], (pieces + i*HASH_UNIT), HASH_UNIT);
     }
     info->piece_hashes = hashes;
 
@@ -306,19 +418,23 @@ int parse_bt_info(bt_info_t *info, be_node *node){
 //save the piece to the file
 int save_piece(bt_args_t *args, bt_piece_t *piece){
   int base; //base offset
-  int offset, length, bytes;
+  int offset, length;
+  int bytes = 0;
+  FILE *fp = fopen(args->save_file, "a+");
 
   //get location within file
   length = args->bt_info->piece_length;
   base = length * piece->index;
   offset = base + piece->begin;
 
-  if (fseek(args->f_save, offset, SEEK_SET) != 0){
+  if (fseek(fp, offset, SEEK_SET) != 0){
     fprintf(stderr, "failed to offset to correct position\n");
     return ERR;
   }
-
-  bytes = fwrite(piece->piece, 1, length, args->f_save);
+ 
+  //TODO :resolve the segfault here
+  //bytes = fwrite(piece->piece, 1, length, fp);
+  fclose(fp);
   return bytes;
 }
 
@@ -326,57 +442,102 @@ int save_piece(bt_args_t *args, bt_piece_t *piece){
 int load_piece(bt_args_t *args, bt_piece_t *piece){
   int base; //base offset
   int offset, length, bytes;
-
+  FILE *fp = fopen(args->bt_info->name, "a+");
+  
   //get location within file
   length = args->bt_info->piece_length;
+  char buffer[length]; 
   base = length * piece->index;
   offset = base + piece->begin;
 
-  if (fseek(args->f_save, offset, SEEK_SET) != 0){
+  if (fseek(fp, offset, SEEK_SET) != 0){
     fprintf(stderr, "failed to offset to correct position\n");
     return ERR;
   }
 
-  bytes = fread(piece->piece, 1, length, args->f_save);
+  bytes = fread(buffer, 1, length, fp);
+
+  //backup the piece data
+  piece->piece = buffer; 
+  fclose(fp);
   return bytes;
 }
 
+void print_bits(char byte){
+  int i, val;
+  for(i=0;i<8;i++){
+    val = byte & (1 << i) ? 1: 0;
+    printf("%d", val);
+  }
+  printf("\n");
+}
+
+//given an index, set the corresponding bit to true
+//called when a file piece has been received
+int set_bitfield(bt_args_t *args, int index){
+  int base, offset;
+  base = index/8;
+  offset = index - (base*8);
+  args->bitfield.bitfield[base] = args->bitfield.bitfield[base] | (1 << (7-offset));
+  return 0;
+}
+
+//do we own this piece?
+int own_piece(bt_args_t *args, int piece){
+  int base, offset;
+  base = piece/8;
+  offset = piece - (base * 8);
+  if ((args->bitfield.bitfield[base] & (1 << (7-offset))))
+    return TRUE;
+  return FALSE;
+
+}
+
 //get the bitfield
-/*
-int get_bitfield(bt_args_t *args, bt_bitfield_t * bfield){
+int get_bitfield(bt_args_t *args, bt_bitfield_t *bitfield){
   FILE *fp;
-  int i;
+  int i,j, bytes, count;
+  int index = 0; //index in the char array
   int length = args->bt_info->piece_length;
-  char *piece = NULL;
+  char piece[length];
+  char *bits;
   char *fname = args->bt_info->name;
   //need place to store piece hash of current file
   unsigned char result_hash[20];
 
-  //determining bitfield size
-  //note: assuming size is the number of pieces, rather than memory size
-  bfield->size = args->bt_info->num_pieces;
-  
-  //allocating memory for bitfield array within bitfield strcut
-  bfield->bitfield = (char *) malloc(bfield->size);
+  count = args->bt_info->num_pieces; //get number of pieces
+  bytes = ceiling(count, 8); //get the number of char needed to hold bits 
+  bits = (char *)malloc(bytes);
   
   //opening file for reading
-  fp = fopen(fname, "r");
-  
+  fp = fopen(fname, "a+");
   //check hashed pieces of file against piece hashes of torrent file
-  for (i=0; i<bitfield->size; i++){
-    fseek(fp, i*length, SEEK_SET);
-    fread(piece, 1, length, fp);
-    //compare the hashes
-    SHA1((unsigned char *) piece, length, result_hash)
-    if (memcmp(result_hash, args->bt_info->piece_hashes[i], 20) == 0){
-      bfield->bitfield[i] = "1";
-    } 
-    else {
-      bfield->bitfield[i] = "0";
+  for (i=0; i<bytes; i++){
+    bits[i] = 0; //zero out the char
+    //printf("%d  ", bits[i]);
+    for (j=0;j<8;j++){
+      index = j + (i*8);
+      if (index >= count) //stopping condition
+        continue; 
+      fseek(fp, index*length, SEEK_SET);
+      fread(piece, 1, length, fp);
+      rewind(fp); //always rewind after use
+       
+      SHA1((unsigned char *) piece, length, result_hash);
+      if (memcmp(result_hash, args->bt_info->piece_hashes[index], HASH_UNIT) == 0){
+        bits[i] = bits[i] | (1<<(7-j)); //set the correct bit
+       // printf("[%d] available\n", index);
+      }
     }
+    print_bits(bits[i]);
   }
+  
+  
+  //set the appropriate variables
+  bitfield->bitfield = bits;
+  bitfield->size = count;
   return 0;
-}*/
+}
 
 int sha1_piece(bt_args_t *args, bt_piece_t* piece, unsigned char * hash) {
   SHA1((unsigned char *) piece, sizeof(bt_piece_t), hash);

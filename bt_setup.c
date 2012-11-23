@@ -26,7 +26,7 @@ void usage(FILE * file){
           "  -h            \t Print this help screen\n"
           "  -b port         \t Bind to this ip for incoming connections, ports\n"
           "                \t are selected automatically\n"
-          "  -s save_file  \t Save the torrent in directory save_dir (dflt: .)\n"
+          "  -s save_file  \t Save the torrent in directory save_dir (dflt: download.bt)\n"
           "  -l log_file   \t Save logs to log_filw (dflt: bt-client.log)\n"
           "  -p ip:port    \t Instead of contacing the tracker for a peer list,\n"
           "                \t use this peer instead, ip:port (ip or hostname)\n"
@@ -129,6 +129,7 @@ void parse_args(bt_args_t * bt_args, int argc,  char * argv[]){
   bt_args->ip = NULL;
   //default lag file
   strncpy(bt_args->log_file,"bt-client.log",FILE_NAME_MAX);
+  strncpy(bt_args->save_file,"download.bt",FILE_NAME_MAX);
   
   for(i=0;i<MAX_CONNECTIONS;i++){
     bt_args->peers[i] = NULL; //initially NULL

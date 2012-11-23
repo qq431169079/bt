@@ -192,6 +192,7 @@ void handshake_all(bt_args_t *args){
   int i;
   int sockfd;
   struct sockaddr_in sockaddr, handshake_addr;
+  bt_msg_t msg; //message structure
   char *fname = args->bt_info->name;
   char *ip;
   int port;
@@ -211,7 +212,8 @@ void handshake_all(bt_args_t *args){
         perror("connect");
         continue;
       }
-     
+      
+      args->peers[i]->sockfd = sockfd; //backup the socket 
       ip = inet_ntoa(handshake_addr.sin_addr);
       port = ntohs(handshake_addr.sin_port);
       sprintf(init_stats, "HANDSHAKE INIT to peer: %s on port: %d\n", ip, port);
@@ -220,9 +222,15 @@ void handshake_all(bt_args_t *args){
         sprintf(init_stats, "HANDSHAKE SUCCESS from peer: %s on port: %d\n", ip, port);
         LOGGER(args->log_file, 1, init_stats);
         args->sockets[i] = sockfd;
+        args->poll_sockets[i].fd = sockfd;
+        args->poll_sockets[i].events = POLLIN;
+        
         //send our bitfield here
-        //args->poll_sockets[i].fd = sockfd;
-        //args->poll_sockets[i].events = POLLIN;
+        //sendout the bitfield
+        msg.length = 2+4+ceiling(args->bitfield.size, 8);
+        msg.bt_type = BT_BITFIELD;
+        msg.payload.bitfield = args->bitfield;
+        send_to_peer(args->peers[i], &msg); //send out the message
       }
       else{
         sprintf(init_stats, "HANDSHAKE DECLINED from peer: %s on port: %d\n", ip, port);
