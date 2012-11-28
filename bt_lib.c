@@ -17,6 +17,74 @@
 #include "bencode.h"
 #include "bt_lib.h"
 #include "bt_setup.h"
+#define max( a, b ) ( ((a) > (b)) ? (a) : (b) )
+
+//fill the listen buffer with the necessary info
+//set the listening port to the current default 
+void fill_listen_buff(struct sockaddr_in *destaddr, int port){
+  struct hostent *hostinfo;
+  char ip[NAME_MAX];
+  if (gethostname(ip, NAME_MAX) < 0){
+    perror("gethostbyname");
+    exit(1);
+  }
+  
+  if(!(hostinfo = gethostbyname(ip))){  
+    fprintf(stderr,"ERROR: Invalid host name %s",ip);
+    usage(stderr);
+    exit(1);
+  }
+  
+  destaddr->sin_family = hostinfo->h_addrtype;
+  bcopy((char *) hostinfo->h_addr,
+        (char *) &(destaddr->sin_addr.s_addr),
+        hostinfo->h_length);
+  
+  destaddr->sin_port = htons(port);
+  
+}
+
+//initialize the listening socket
+int init_socket(bt_args_t *bt_args){
+  socklen_t addr_size;
+  struct sockaddr_in serv_addr;
+  int sockfd;
+  char id[ID_SIZE];
+
+  //initialize listening socket
+  addr_size = sizeof(struct sockaddr);
+  //open the socket
+  if ((sockfd = socket(AF_INET, SOCK_STREAM, 0)) < 0){
+    perror("socket");
+    exit(1);
+  }
+
+  //get my own IP
+  fill_listen_buff(&serv_addr, bt_args->port);
+  bt_args->ip = inet_ntoa(serv_addr.sin_addr); //get the IP
+  
+  char init_stats[80];
+  LOGGER(bt_args->log_file, 0, "Starting the BitTorrent Client\n");
+  sprintf(init_stats, "Listening on IP:port is %s:%d\n", bt_args->ip, bt_args->port);
+  LOGGER(bt_args->log_file, 1, init_stats);
+  //get own ID
+  calc_id(bt_args->ip, bt_args->port, id);
+  memcpy(bt_args->id, id, 20);
+
+  if (bind(sockfd, (struct sockaddr *)&serv_addr, addr_size) == -1){
+    perror("bind");
+    exit(1);
+  }
+  printf("Bind Succeeded\n");
+   
+  //set listen to up to 5 queued connections
+  if (listen(sockfd, MAX_CONNECTIONS) == -1){
+    perror("listen");
+    exit(1);
+  }
+  return sockfd;
+
+}
 
 void calc_id(char * ip, unsigned short port, char *id){
   char data[256];
@@ -138,12 +206,35 @@ int poll_peers(bt_args_t *bt_args) {
 //send a message to peer
 int send_to_peer(peer_t *peer, bt_msg_t *msg) {
   int bytes;
-  bytes = write(peer->sockfd, 
-                msg,
-                sizeof(bt_msg_t));
+  int len = HDRLEN + msg->length; //length of the message
+  char sendbuf[len];
+  memcpy(sendbuf, msg, len);
+  bytes = write(peer->sockfd, sendbuf, len);
   if (bytes < 0)
     perror("send_to_peer: write()");
   return bytes;
+}
+
+//send blocks, return -1 on error essentially instructing application
+//to resend the entire block sequence
+int send_blocks(peer_t *peer, bt_request_t request, bt_args_t *args){
+  bt_msg_t response; //response message
+  bt_piece_t piece;
+  int length;;
+  
+  //build the piece
+  piece.index = request.index;
+  piece.begin = request.begin;
+  load_piece(args, &piece, request.length);
+  length = sizeof(bt_piece_t);
+
+  //build the message
+  response.length = length;
+  response.bt_type = BT_PIECE;
+  response.payload.piece = piece;
+  send_to_peer(peer, &response);
+  printf("sent out %d bytes on the line\n", response.length);
+  return 0; //on success
 }
 
 int read_from_peer(peer_t *peer, bt_msg_t *msg, bt_args_t *args) {
@@ -162,12 +253,29 @@ int read_from_peer(peer_t *peer, bt_msg_t *msg, bt_args_t *args) {
   //IN THE STRUCT PEER!!!  type peer_t
   //
   //
-  bt_msg_t response; //reusable response message
+  //bt_msg_t response; //reusable response message
   char *logfile = args->log_file; 
   char log_msg[80]; //log message buffer
   char *ip = inet_ntoa(peer->sockaddr.sin_addr); 
-  read(peer->sockfd, msg, sizeof(bt_msg_t)); 
-  int piece_index;
+  char readbuf[MAXMSG];
+  int bytes;
+  
+  if ((bytes = read(peer->sockfd, readbuf, HDRLEN)) < 0){ //get message header
+    perror("read");
+    return ERR;
+  }
+
+  msg = (bt_msg_t *)readbuf;
+  printf("msg->length = %d\n", msg->length);
+  if (msg->length > 0){//there is more data to read on the line
+    if (read(peer->sockfd, (readbuf + bytes), msg->length)<0){ //done reading
+      perror("read");
+      return ERR;
+    }
+  }
+
+  msg = (bt_msg_t *)readbuf;
+  int piece_index, block;
   bt_piece_t piece; //this little piece of ....
   if(msg->length == 0){
     sprintf(log_msg, "MESSAGE RECEIVED :{KEEP_ALIVE} from %s\n", ip);
@@ -175,6 +283,7 @@ int read_from_peer(peer_t *peer, bt_msg_t *msg, bt_args_t *args) {
     //just a keep alive message
     return 0;
   }
+  
   else{
     switch(msg->bt_type){
       case BT_BITFIELD:
@@ -184,52 +293,66 @@ int read_from_peer(peer_t *peer, bt_msg_t *msg, bt_args_t *args) {
         peer->bitfield = msg->payload.bitfield; //backup the bitfield
         peer->choked = 0;
         peer->interested = 1;
+        printf("%c\n", peer->bitfield.bitfield[0]);
+        print_bits(peer->bitfield.bitfield[0]);
         //TODO: if peer has pieces we dont have, set the peer to be unchoked
         //      and interested
         break;
       case BT_REQUEST:
         piece_index = msg->payload.request.index;
-        printf("received a request for a piece\n");
+        block = msg->payload.request.begin;
+        msg->payload.request.length = 1024; //hack
+        printf("received a request for a piece %d length %d\n", piece_index, msg->payload.request.length);
         sprintf(log_msg, "MESSAGE RECEIVED :{REQUEST} for piece:%d from %s\n",
                 piece_index, ip);
         LOGGER(logfile, 1, log_msg);
         
         //TODO: if we have the piece, send out the piece
         if (own_piece(args, piece_index)){
-          printf("sending out response for piece\n");
-          sprintf(log_msg, "MESSAGE RESPONSE :{PIECE} for piece:%d to %s\n",
-                  piece_index, ip);
+          sprintf(log_msg, "MESSAGE RESPONSE :{PIECE} for piece:%d(%d) to %s\n",
+                  piece_index, block, ip);
           LOGGER(logfile, 1, log_msg);
-          load_piece(args, &piece); //load the piece if we have it
-
-          response.length = 2 + sizeof(bt_piece_t);
-          response.bt_type = BT_PIECE;
-          response.payload.piece = piece;
-          send_to_peer(peer, &response);
+          //length = load_piece(args, &piece); //load the piece if we have it
+          //response.length = length;
+          //response.bt_type = BT_PIECE;
+          //response.payload.piece = piece;
+          printf("sending out response for piece %d, begin %d\n", piece_index, block);
+          //send_to_peer(peer, &response);
+          send_blocks(peer, msg->payload.request, args);
+          printf("response sent\n");
         }
         break;
       
       case BT_PIECE:
         piece_index = msg->payload.piece.index;
-        printf("received a piece of the cake\n");
+        printf("received a piece of length %d\n", msg->length);
         sprintf(log_msg, "MESSAGE RECEIVED :{PIECE} received file piece:%d from %s\n",
                 piece_index, ip);
         LOGGER(logfile, 1, log_msg);
         
         //if we already have the piece, just ignore the message
-        if (own_piece(args, piece_index)){
+        if (!(own_piece(args, piece_index))){
            sprintf(log_msg, "MESSAGE RECEIVED :{PIECE} received file piece:%d from %s\n",
                 piece_index, ip);
            LOGGER(logfile, 1, log_msg);
            //TODO print stats here
            piece = msg->payload.piece;
-           save_piece(args, &piece);
+           save_piece(args, &piece, msg->length - 8);
+           if ((args->downloading > 0) && (args->downloading != piece_index)){
+             //we have just changed the piece we are downloading, so must be 
+             //done with previous piece
+             args->downloading = piece_index;
+             set_bitfield(args, piece_index); //we now have it
+             //TODO send out have message
+             
+
+           }
 
         }
         break;
 
       default:
-        printf("unknown message type\n");
+        printf("unknown message type %d\n", msg->bt_type);
         break;
     }
 
@@ -400,7 +523,7 @@ int parse_bt_info(bt_info_t *info, be_node *node){
     float f_num_pieces = ((float)info->length)/info->piece_length;
     if (f_num_pieces > num_pieces)
       num_pieces += 1;
-    info->num_pieces = num_pieces;
+    info->num_pieces = max(1,num_pieces);
     //TODO reclaim all this dynamic memory when we close the application
     hashes = (char **)malloc(sizeof(char *)*num_pieces);
     for(i=0;i<num_pieces;i++){
@@ -416,11 +539,11 @@ int parse_bt_info(bt_info_t *info, be_node *node){
 
 
 //save the piece to the file
-int save_piece(bt_args_t *args, bt_piece_t *piece){
+int save_piece(bt_args_t *args, bt_piece_t *piece, int size){
   int base; //base offset
   int offset, length;
   int bytes = 0;
-  FILE *fp = fopen(args->save_file, "a+");
+  FILE *fp = args->fp;
 
   //get location within file
   length = args->bt_info->piece_length;
@@ -428,48 +551,70 @@ int save_piece(bt_args_t *args, bt_piece_t *piece){
   offset = base + piece->begin;
 
   if (fseek(fp, offset, SEEK_SET) != 0){
+    //perror("fseek");
     fprintf(stderr, "failed to offset to correct position\n");
     return ERR;
   }
- 
-  //TODO :resolve the segfault here
-  //bytes = fwrite(piece->piece, 1, length, fp);
-  fclose(fp);
+  rewind(fp); //courtesy rewind
+  bytes = fwrite(piece->piece, 1, size, fp);
+  printf("%s\n", piece->piece);
   return bytes;
 }
 
 //load the piece in the bt_piece_t struct
-int load_piece(bt_args_t *args, bt_piece_t *piece){
+int load_piece(bt_args_t *args, bt_piece_t *piece, int length){
   int base; //base offset
-  int offset, length, bytes;
-  FILE *fp = fopen(args->bt_info->name, "a+");
+  int offset, bytes, piece_length;
+  FILE *fp = args->fin;
+  char buff[length];
   
   //get location within file
-  length = args->bt_info->piece_length;
-  char buffer[length]; 
-  base = length * piece->index;
+  piece_length = args->bt_info->piece_length;
+  base = piece_length * piece->index;
   offset = base + piece->begin;
-
+ 
   if (fseek(fp, offset, SEEK_SET) != 0){
     fprintf(stderr, "failed to offset to correct position\n");
     return ERR;
   }
 
-  bytes = fread(buffer, 1, length, fp);
-
-  //backup the piece data
-  piece->piece = buffer; 
-  fclose(fp);
+  bytes = fread(buff, 1, length, fp);
+  memcpy(piece->piece, buff, length);
+  rewind(fp); //courtesy rewind
   return bytes;
 }
 
 void print_bits(char byte){
   int i, val;
   for(i=0;i<8;i++){
-    val = byte & (1 << i) ? 1: 0;
+    val = byte & (1 << (7-i)) ? 1: 0;
     printf("%d", val);
   }
   printf("\n");
+}
+
+//comment on whether current piece has been downloaded
+//successfully. Check the download file and read in the 
+//piece data from there
+int piece_download_complete(bt_args_t *args, int index){
+  int len;
+  int length = args->bt_info->piece_length;
+  unsigned char result_hash[20];
+  char piece[length];
+  FILE *fp = args->fp;
+
+  if (fseek(fp, index*length, SEEK_SET) < 0){
+    perror("fseek");
+    return FALSE;
+  }
+
+  len = fread(piece, 1, length, fp);
+  rewind(fp); //always rewind after use
+  SHA1((unsigned char *) piece, len, result_hash);
+  if (strncmp((const char *)result_hash,
+        args->bt_info->piece_hashes[index], HASH_UNIT) == 0)
+    return TRUE;
+  return FALSE;
 }
 
 //given an index, set the corresponding bit to true
@@ -496,13 +641,12 @@ int own_piece(bt_args_t *args, int piece){
 //get the bitfield
 int get_bitfield(bt_args_t *args, bt_bitfield_t *bitfield){
   FILE *fp;
+  int len; //length of the piece read
   int i,j, bytes, count;
   int index = 0; //index in the char array
   int length = args->bt_info->piece_length;
   char piece[length];
   char *bits;
-  char *fname = args->bt_info->name;
-  //need place to store piece hash of current file
   unsigned char result_hash[20];
 
   count = args->bt_info->num_pieces; //get number of pieces
@@ -510,7 +654,7 @@ int get_bitfield(bt_args_t *args, bt_bitfield_t *bitfield){
   bits = (char *)malloc(bytes);
   
   //opening file for reading
-  fp = fopen(fname, "a+");
+  fp = args->fin;
   //check hashed pieces of file against piece hashes of torrent file
   for (i=0; i<bytes; i++){
     bits[i] = 0; //zero out the char
@@ -520,27 +664,30 @@ int get_bitfield(bt_args_t *args, bt_bitfield_t *bitfield){
       if (index >= count) //stopping condition
         continue; 
       fseek(fp, index*length, SEEK_SET);
-      fread(piece, 1, length, fp);
+      len = fread(piece, 1, length, fp);
       rewind(fp); //always rewind after use
-       
-      SHA1((unsigned char *) piece, length, result_hash);
-      if (memcmp(result_hash, args->bt_info->piece_hashes[index], HASH_UNIT) == 0){
+      memset(result_hash, 0, 20); //zero out the result_hash
+      SHA1((unsigned char *) piece, len, result_hash);
+      if (strncmp((const char *)result_hash,
+            args->bt_info->piece_hashes[index], HASH_UNIT) == 0){
         bits[i] = bits[i] | (1<<(7-j)); //set the correct bit
        // printf("[%d] available\n", index);
       }
     }
-    print_bits(bits[i]);
+    
+    if (args->verbose)
+      print_bits(bits[i]);
   }
   
   
   //set the appropriate variables
   bitfield->bitfield = bits;
-  bitfield->size = count;
+  bitfield->size = bytes; //number of character bytes
   return 0;
 }
 
-int sha1_piece(bt_args_t *args, bt_piece_t* piece, unsigned char * hash) {
-  SHA1((unsigned char *) piece, sizeof(bt_piece_t), hash);
+int sha1_piece(char *piece, int length,  unsigned char *hash) {
+  SHA1((unsigned char *)piece, length, hash);
   return 0;
 }
 

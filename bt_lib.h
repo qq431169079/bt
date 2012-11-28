@@ -18,7 +18,6 @@
 #include "bt_lib.h"
 #include "bencode.h"
 
-
 /*Maximum file name size, to make things easy*/
 #define FILE_NAME_MAX 1024
 
@@ -51,11 +50,15 @@
 #define FALSE 0
 #define NAME_MAX 1024
 #define HASH_UNIT 20
+#define CHUNK_SIZE 1 //1 byte bt_piece response size
+#define HDRLEN 6 //size of message header length
+#define MAXBLOCK 1024 //max block size. Standard length
+#define MAXMSG 1500 //size of largest message
 
 typedef struct {
+  size_t size;  //number of bytes for the bitfield
   char *bitfield; //bitfield where each bit represents a piece that
                    //the peer has or doesn't have
-  size_t size;//size of the bitfield
 } bt_bitfield_t;
 
 //holds information about a peer
@@ -85,7 +88,8 @@ typedef struct {
 typedef struct {
   int verbose; //verbose level
   char save_file[FILE_NAME_MAX];//the filename to save to
-  FILE * f_save;
+  FILE *fp; //fout the fp to the file to save to
+  FILE *fin; //the fin to the file to read from
   char log_file[FILE_NAME_MAX];//the log file
   char torrent_file[FILE_NAME_MAX];// *.torrent file
   peer_t * peers[MAX_CONNECTIONS]; // array of peer_t pointers
@@ -95,6 +99,7 @@ typedef struct {
   char *ip;
   int port;
   int leecher; //flag for whether I am a leecher or seeder
+  int downloading; //current piece being downloaded 
   /*set once torrent is parsed*/
   bt_info_t *bt_info; //the parsed info for this torrent
   bt_bitfield_t bitfield;  
@@ -116,7 +121,7 @@ typedef struct{
 typedef struct{
   int index; //which piece index
   int begin; //offset within piece
-  char *piece; //pointer to start of the data for a piece
+  char piece[MAXBLOCK]; //pointer to start of the data for a piece
 } bt_piece_t;
 
 
@@ -130,9 +135,9 @@ typedef struct bt_msg{
   union { 
     bt_bitfield_t bitfield;//send a bitfield
     int have; //what piece you have
-    bt_piece_t piece; //a peice message
     bt_request_t request; //request messge
     bt_request_t cancel; //cancel message, same type as request
+    bt_piece_t piece; //a piece message
     char data[0];//pointer to start of payload, just incase
   }payload;
 
@@ -146,6 +151,12 @@ int ceiling(int dividend, int divisor); //mimic ceil()
 int set_bitfield(bt_args_t *args, int index); //set bitfield
 int send_all(bt_args_t *args, bt_msg_t *msg);//send message to all your peers
 int own_piece(bt_args_t *args, int piece); //do we have own this piece
+int send_blocks(peer_t *peer, bt_request_t request, bt_args_t *args); //send back the requested 
+int init_socket(bt_args_t *args); //initialize the listening socket
+int poll_peers(bt_args_t *bt_args); //poll peers for info
+void fill_listen_buff(struct sockaddr_in *destaddr, int port);
+int piece_download_complete(bt_args_t *args, int index);
+void print_bits(char byte); //print bits in a byte
 /*choose a random id for this node*/
 unsigned int select_id();
 
@@ -174,7 +185,6 @@ int check_peer(peer_t *peer);
 void LOGGER(char *log, int type, char *msg);
 void INIT_LOGGER(char *log);
 /*check if peers want to send me something*/
-int poll_peers(bt_args_t *bt_args);
 
 /*send a msg to a peer*/
 int send_to_peer(peer_t *peer, bt_msg_t *msg);
@@ -184,16 +194,16 @@ int read_from_peer(peer_t *peer, bt_msg_t *msg, bt_args_t *args);
 
 
 /* save a piece of the file */
-int save_piece(bt_args_t * bt_args, bt_piece_t * piece);
+int save_piece(bt_args_t *bt_args, bt_piece_t *piece, int size);
 
 /*load a piece of the file into piece */
-int load_piece(bt_args_t * bt_args, bt_piece_t * piece);
+int load_piece(bt_args_t *bt_args, bt_piece_t *piece, int length);
 
 /*load the bitfield into bitfield*/
 int get_bitfield(bt_args_t * bt_args, bt_bitfield_t *bitfield);
 
 /*compute the sha1sum for a piece, store result in hash*/
-int sha1_piece(bt_args_t * bt_args, bt_piece_t * piece, unsigned char * hash);
+int sha1_piece(char *piece, int length, unsigned char *hash);
 
 
 /*Contact the tracker and update bt_args with info learned, 

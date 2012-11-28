@@ -12,31 +12,6 @@
 #include <openssl/sha.h>
 #include "bencode.h"
 
-//fill the listen buffer with the necessary info
-//set the listening port to the current default 
-void fill_listen_buff(struct sockaddr_in *destaddr, int port){
-  struct hostent *hostinfo;
-  char ip[NAME_MAX];
-  if (gethostname(ip, NAME_MAX) < 0){
-    perror("gethostbyname");
-    exit(1);
-  }
-  
-  if(!(hostinfo = gethostbyname(ip))){  
-    fprintf(stderr,"ERROR: Invalid host name %s",ip);
-    usage(stderr);
-    exit(1);
-  }
-  
-  destaddr->sin_family = hostinfo->h_addrtype;
-  bcopy((char *) hostinfo->h_addr,
-        (char *) &(destaddr->sin_addr.s_addr),
-        hostinfo->h_length);
-  
-  destaddr->sin_port = htons(port);
-  
-}
-
 /***********************************************************
  * pass in a be_node and extract necessary attributes
  * including the url of the torrent tracker and values for 

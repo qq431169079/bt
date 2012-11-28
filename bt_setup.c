@@ -122,7 +122,7 @@ void parse_args(bt_args_t * bt_args, int argc,  char * argv[]){
   memset(bt_args->log_file,0x00,FILE_NAME_MAX);
   
   //null out file pointers
-  bt_args->f_save = NULL;
+  bt_args->fp = NULL;
 
   //null bt_info pointer, should be set once torrent file is read
   bt_args->bt_info = NULL;
@@ -138,6 +138,7 @@ void parse_args(bt_args_t * bt_args, int argc,  char * argv[]){
   //bt_args->id = NULL;
   bt_args->port = INIT_PORT;
   bt_args->leecher = 1; //leecher
+  bt_args->downloading = 0; //current downloading piece. Set to random #
 
   while ((ch = getopt(argc, argv, "hp:s:l:vI:b:")) != -1) {
     switch (ch) {
@@ -194,7 +195,10 @@ void parse_args(bt_args_t * bt_args, int argc,  char * argv[]){
 
   //copy torrent file over
   strncpy(bt_args->torrent_file,argv[0],FILE_NAME_MAX);
-
+  
+  //open the file to download to
+  printf("Opening the file for download\n");
+  bt_args->fp = fopen(bt_args->save_file, "w+");
   return ;
 }
 

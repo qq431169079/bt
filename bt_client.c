@@ -27,21 +27,21 @@ int main(int argc, char * argv[]){
   int i=0;
   int num_peers = 0;
   int sockfd, client_sock;
-  struct sockaddr_in serv_addr, client_addr;
-  socklen_t addr_size;
+  struct sockaddr_in client_addr;
+  socklen_t addr_size = sizeof(struct sockaddr);
   struct timeval tv;
   char *ip;
-  int index;
+  int index, blocks_requested;
   bt_msg_t msg; //reusable message casing
   int pollrv; //return value from the call to poll()
   unsigned short port;
-  char id[ID_SIZE];
   fd_set listen_set;
   int current = 0; //current piece being analyzed
-  int previous;
+  int previous = -100; //magic number
+  char log_entry[80];
   bt_request_t request; //reusable request message
   parse_args(&bt_args, argc, argv);
-  
+
   //count number of initial peers
   while (bt_args.peers[i])
     i++;
@@ -66,56 +66,26 @@ int main(int argc, char * argv[]){
   node = load_be_node(bt_args.torrent_file);
   parse_bt_info(&bt_info, node);
   bt_args.bt_info = &bt_info;
+  bt_args.fin = fopen(bt_args.bt_info->name, "a+"); //open the source file
   if(bt_args.verbose){
     be_dump(node);
   }
   
-  //initialize listening socket
-  addr_size = sizeof(struct sockaddr);
-  //open the socket
-  if ((sockfd = socket(AF_INET, SOCK_STREAM, 0)) < 0){
-    perror("socket");
-    exit(1);
-  }
-
-  //get my own IP
-  fill_listen_buff(&serv_addr, bt_args.port);
-  bt_args.ip = inet_ntoa(serv_addr.sin_addr); //get the IP
-  
-  char init_stats[80];
-  LOGGER(bt_args.log_file, 0, "Starting the BitTorrent Client\n");
-  sprintf(init_stats, "Listening on IP:port is %s:%d\n", bt_args.ip, bt_args.port);
-  LOGGER(bt_args.log_file, 1, init_stats);
-  //get own ID
-  calc_id(bt_args.ip, bt_args.port, id);
-  memcpy(bt_args.id, id, 20);
-
-  if (bind(sockfd, (struct sockaddr *)&serv_addr, addr_size) == -1){
-    perror("bind");
-    exit(1);
-  }
-  printf("managed to bind\n");
-   
-  //set listen to up to 5 queued connections
-  if (listen(sockfd, MAX_CONNECTIONS) == -1){
-    perror("listen");
-    exit(1);
-  }
-
   //get bitfield info
   bt_bitfield_t bitfield;
   get_bitfield(&bt_args, &bitfield);
-  bt_args.bitfield = bitfield; //backup the bitfield
 
-  //send handshake
-  handshake_all(&bt_args);
+  //initialize connections
+  sockfd = init_socket(&bt_args); //initialize listening socket
+  handshake_all(&bt_args); //send out the handshake
 
   tv.tv_sec = 0;
   tv.tv_usec = 50;
   
-
   //main client loop
   printf("Starting Main Loop\n");
+
+  
   while(1){
     //accept a client connection
     FD_ZERO(&listen_set); //initialize
@@ -129,14 +99,14 @@ int main(int argc, char * argv[]){
      
       else{
         ip = inet_ntoa(client_addr.sin_addr);
-        sprintf(init_stats, "CONNECTION ACCEPTED from peer: %s\n", ip);
-        LOGGER(bt_args.log_file, 1, init_stats);
+        sprintf(log_entry, "CONNECTION ACCEPTED from peer: %s\n", ip);
+        LOGGER(bt_args.log_file, 1, log_entry);
       }
       
       if (leecher_handshake(client_sock, bt_args.bt_info->name, bt_args.id,&client_addr)){
         port = ntohs(client_addr.sin_port);
-        sprintf(init_stats, "HANDSHAKE SUCCESS with peer:%s on port:%d\n", ip, port);
-        LOGGER(bt_args.log_file, 1, init_stats);
+        sprintf(log_entry, "HANDSHAKE SUCCESS with peer:%s on port:%d\n", ip, port);
+        LOGGER(bt_args.log_file, 1, log_entry);
         peer_t *newpeer = (peer_t *)malloc(sizeof(peer_t)); //new peer to try out 
         newpeer->sockfd = client_sock; //keep track of the communication socket
         index = add_peer(newpeer, &bt_args, ip, port);
@@ -147,7 +117,7 @@ int main(int argc, char * argv[]){
           bt_args.poll_sockets[index].events = POLLIN;
 
           //sendout the bitfield
-          msg.length = 2+4+ceiling(bitfield.size, 8);
+          msg.length =  sizeof(size_t) + bitfield.size;
           msg.bt_type = BT_BITFIELD;
           msg.payload.bitfield = bitfield;
           send_to_peer(newpeer, &msg); //send out the message
@@ -161,8 +131,6 @@ int main(int argc, char * argv[]){
       }
     }
     
-    
-    previous = current; //keep track of the last piece that was downloaded
     pollrv = poll(bt_args.poll_sockets, MAX_CONNECTIONS, 50); //50ms timeout
     if (pollrv == -1){
       perror("poll"); //we got a problem from poll
@@ -175,7 +143,6 @@ int main(int argc, char * argv[]){
       for (j=0;j<MAX_CONNECTIONS;j++){
         if (bt_args.poll_sockets[j].revents & POLLIN){
           //get message and process it
-          printf("Got a message from peer in index %d\n", j);
           read_from_peer(bt_args.peers[j], &msg, &bt_args);
          }
        }
@@ -186,23 +153,29 @@ int main(int argc, char * argv[]){
     //printf("previous %d -- current %d\n", previous, current);
     if (current == previous){
       //noone has this piece so move on
-      set_bitfield(&bt_args, current);
       continue;
     }
 
     //send the request for the current piece
+    //for loop here to get blocks of each piece
     if (current != -1){
-      request.index = current;
-      request.length = bt_args.bt_info->piece_length;
-      request.begin = 0;
+      //only send request for next once we have the current requested piece
+      printf("sending out bt_request for piece %d\n", current);
+      blocks_requested = 0;
+      while(!(piece_download_complete(&bt_args, current))){
+        request.index = current;
+        request.begin = blocks_requested;
+        request.length = MAXBLOCK; 
 
-      msg.length = 2 + sizeof(bt_request_t);
-      msg.bt_type = BT_REQUEST;
-      msg.payload.request = request;
-      send_all(&bt_args, &msg); //send out the request message to all peers
+        msg.length = sizeof(bt_request_t);
+        msg.bt_type = BT_REQUEST;
+        msg.payload.request = request;
+        send_all(&bt_args, &msg); //send out the request message to all peers
+        blocks_requested += MAXBLOCK;
+      }
     }
-    sleep(1); 
     
+    previous = current; //keep track of the last piece that was downloaded
     //poll current peers for incoming traffic
     //   write pieces to files
     //   udpdate peers choke or unchoke status
@@ -216,6 +189,7 @@ int main(int argc, char * argv[]){
     
     //update peers, 
   }
-
+  fclose(bt_args.fp);
+  fclose(bt_args.fin);
   return 0;
 }
