@@ -164,7 +164,7 @@ int main(int argc, char * argv[]){
           bt_args.poll_sockets[index].events = POLLIN;
 
           //sendout the bitfield
-          msg.length =  sizeof(size_t) + bitfield.size;
+          msg.length =  sizeof(bt_bitfield_t);
           msg.bt_type = BT_BITFIELD;
           msg.payload.bitfield = bitfield;
           send_to_peer(newpeer, &msg); //send out the message

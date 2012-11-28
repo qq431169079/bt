@@ -48,6 +48,7 @@
 #define ERR -1 //return when error encountered
 #define TRUE 1
 #define FALSE 0
+#define MAXSIZE 1024
 #define NAME_MAX 1024
 #define HASH_UNIT 20
 #define CHUNK_SIZE 1 //1 byte bt_piece response size
@@ -57,8 +58,7 @@
 
 typedef struct {
   size_t size;  //number of bytes for the bitfield
-  char *bitfield; //bitfield where each bit represents a piece that
-                   //the peer has or doesn't have
+  char bitfield[MAXSIZE]; //bitfield where each bit represents a piece that
 } bt_bitfield_t;
 
 //holds information about a peer
@@ -69,6 +69,7 @@ typedef struct peer{
   int sockfd; //file descriptor for communication port
   int choked; //peer choked?
   int interested; //peer interested?
+  struct timeval tv;//time last heard from
   bt_bitfield_t bitfield;
 }peer_t;
 
