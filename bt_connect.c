@@ -86,10 +86,10 @@ int __verify__(char *fname, char first, char *name, char *chaff, char *id, char 
   char id_val[20];
   calc_id(ip, INIT_PORT, id_val);
   
-  //if (memcmp(id, id_val, 20) != 0){
-  //   printf("Failed on the hash\n");
-  //   return ERR;
-  //}
+  if (memcmp(id, id_val, 20) != 0){
+     printf("Failed on the hash\n");
+     return ERR;
+  }
   return TRUE;
 
 }

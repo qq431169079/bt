@@ -58,8 +58,8 @@ void leecher_loop(bt_args_t *args){
     set_bitfield(args, current);
   
   }
-  //fclose(args->fp);
-  //fclose(args->fin);
+  fclose(args->fp);
+  fclose(args->fin);
 
 }
 

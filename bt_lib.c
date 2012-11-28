@@ -772,7 +772,7 @@ void LOGGER(char *log, int type, char *msg){
 int add_peer(peer_t *peer, bt_args_t *args, char *ip, unsigned short port){
   int i;
   char id[ID_SIZE];
-  calc_id(ip, port, id);
+  calc_id(ip, INIT_PORT, id);
   init_peer(peer, id, ip, port);
   
   //look for free spot

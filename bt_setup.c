@@ -88,7 +88,7 @@ void __parse_peer(peer_t * peer, char * peer_st){
 
 
   //calculate the id, value placed in id
-  calc_id(ip,port,id);
+  calc_id(ip,INIT_PORT,id);
 
   //build the object we need
   init_peer(peer, id, ip, port);
