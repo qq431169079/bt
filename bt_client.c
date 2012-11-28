@@ -18,7 +18,40 @@
 #include "bt_setup.h"
 #include "bt_connect.h"
 
+void leecher_loop(bt_args_t *args){
+  //determine which pieces to request
+  int current=0;
+  int begin;
+  bt_request_t request;
+  bt_msg_t msg;
+  bt_msg_t response;
+ 
+  printf("leecher main loop\n");
+  while(current != -1){
+    current = select_download_piece(args);
+    //only send request for next once we have the current requested piece
+    printf("sending out bt_request for piece %d\n", current);
+    begin = 0;
+    while(!(piece_download_complete(args, current))){
+      printf("\t beginning at index %d\n", begin);
+      request.index = current;
+      request.begin = begin;
+      request.length = MAXBLOCK; 
 
+      msg.length = sizeof(bt_request_t);
+      msg.bt_type = BT_REQUEST;
+      msg.payload.request = request;
+      send_all(args, &msg); //send out the request message to all peers
+      read_from_peer(args->peers[0], &response, args); //get response
+      begin += MAXBLOCK;
+      sleep(1);
+    }
+  
+  }
+  //fclose(args->fp);
+  //fclose(args->fin);
+
+}
 
 int main(int argc, char * argv[]){
   bt_args_t bt_args;
@@ -74,6 +107,7 @@ int main(int argc, char * argv[]){
   //get bitfield info
   bt_bitfield_t bitfield;
   get_bitfield(&bt_args, &bitfield);
+  bt_args.bitfield = bitfield;
 
   //initialize connections
   sockfd = init_socket(&bt_args); //initialize listening socket
@@ -84,7 +118,10 @@ int main(int argc, char * argv[]){
   
   //main client loop
   printf("Starting Main Loop\n");
-
+  if (bt_args.leecher){
+    leecher_loop(&bt_args);
+    return 0;
+  }
   
   while(1){
     //accept a client connection
@@ -150,14 +187,9 @@ int main(int argc, char * argv[]){
      
     //select piece to download and send out the message
     current = select_download_piece(&bt_args);
-    //printf("previous %d -- current %d\n", previous, current);
-    if (current == previous){
-      //noone has this piece so move on
-      continue;
-    }
-
     //send the request for the current piece
     //for loop here to get blocks of each piece
+    /*
     if (current != -1){
       //only send request for next once we have the current requested piece
       printf("sending out bt_request for piece %d\n", current);
@@ -174,7 +206,7 @@ int main(int argc, char * argv[]){
         blocks_requested += MAXBLOCK;
       }
     }
-    
+    */
     previous = current; //keep track of the last piece that was downloaded
     //poll current peers for incoming traffic
     //   write pieces to files

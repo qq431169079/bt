@@ -202,7 +202,7 @@ void handshake_all(bt_args_t *args){
         
         //send our bitfield here
         //sendout the bitfield
-        msg.length = 2+4+ceiling(args->bitfield.size, 8);
+        msg.length = sizeof(size_t) + args->bitfield.size;
         msg.bt_type = BT_BITFIELD;
         msg.payload.bitfield = args->bitfield;
         send_to_peer(args->peers[i], &msg); //send out the message

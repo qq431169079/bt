@@ -137,7 +137,7 @@ void parse_args(bt_args_t * bt_args, int argc,  char * argv[]){
 
   //bt_args->id = NULL;
   bt_args->port = INIT_PORT;
-  bt_args->leecher = 1; //leecher
+  bt_args->leecher = 0; //leecher
   bt_args->downloading = 0; //current downloading piece. Set to random #
 
   while ((ch = getopt(argc, argv, "hp:s:l:vI:b:")) != -1) {
@@ -159,7 +159,7 @@ void parse_args(bt_args_t * bt_args, int argc,  char * argv[]){
       strncpy(bt_args->log_file,optarg,FILE_NAME_MAX);
       break;
     case 'p': //peer
-      bt_args->leecher = 0;
+      bt_args->leecher = 1;
       //check if we are going to overflow
       if(n_peers > MAX_CONNECTIONS){
         fprintf(stderr,"ERROR: Can only support %d initial peers",MAX_CONNECTIONS);

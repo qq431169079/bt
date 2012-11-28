@@ -278,6 +278,7 @@ int read_from_peer(peer_t *peer, bt_msg_t *msg, bt_args_t *args) {
   int piece_index, block;
   bt_piece_t piece; //this little piece of ....
   if(msg->length == 0){
+    printf("received keep alive message\n");
     sprintf(log_msg, "MESSAGE RECEIVED :{KEEP_ALIVE} from %s\n", ip);
     LOGGER(logfile, 1, log_msg);
     //just a keep alive message
@@ -293,8 +294,6 @@ int read_from_peer(peer_t *peer, bt_msg_t *msg, bt_args_t *args) {
         peer->bitfield = msg->payload.bitfield; //backup the bitfield
         peer->choked = 0;
         peer->interested = 1;
-        printf("%c\n", peer->bitfield.bitfield[0]);
-        print_bits(peer->bitfield.bitfield[0]);
         //TODO: if peer has pieces we dont have, set the peer to be unchoked
         //      and interested
         break;
@@ -464,7 +463,7 @@ int ceiling(int dividend, int divisor){
 //return -1 when we have every piece
 int select_download_piece(bt_args_t *args){
   int i,j, index;
-  int bytes = ceiling(args->bitfield.size, 8); //number of character bytes
+  int bytes = args->bitfield.size; //number of character bytes
   char *bitfield = args->bitfield.bitfield;
   for(i=0;i< bytes;i++){
     for(j=0;j<8;j++){
@@ -555,9 +554,10 @@ int save_piece(bt_args_t *args, bt_piece_t *piece, int size){
     fprintf(stderr, "failed to offset to correct position\n");
     return ERR;
   }
-  rewind(fp); //courtesy rewind
   bytes = fwrite(piece->piece, 1, size, fp);
+  rewind(fp); //courtesy rewind
   printf("%s\n", piece->piece);
+  fflush(fp);
   return bytes;
 }
 
