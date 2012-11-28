@@ -18,25 +18,32 @@
 #include "bt_setup.h"
 #include "bt_connect.h"
 
+#define max( a, b ) ( ((a) > (b)) ? (a) : (b) )
+#define min( a, b ) ( ((a) < (b)) ? (a) : (b) )
+
 void leecher_loop(bt_args_t *args){
   //determine which pieces to request
   int current=0;
   int begin;
+  int bytes, remaining;
   bt_request_t request;
   bt_msg_t msg;
   bt_msg_t response;
  
   printf("leecher main loop\n");
-  while(current != -1){
-    current = select_download_piece(args);
+  while((current = select_download_piece(args)) != -1){
     //only send request for next once we have the current requested piece
     printf("sending out bt_request for piece %d\n", current);
     begin = 0;
-    while(!(piece_download_complete(args, current))){
+    bytes = 0;
+    remaining = MAXBLOCK; //initialize to some high val
+    while (remaining > 0){
+      //while((remaining = piece_bytes_left(args, current, bytes)) > 0){
+      remaining = piece_bytes_left(args, current, bytes);
       printf("\t beginning at index %d\n", begin);
       request.index = current;
       request.begin = begin;
-      request.length = MAXBLOCK; 
+      request.length = min(remaining, MAXBLOCK); 
 
       msg.length = sizeof(bt_request_t);
       msg.bt_type = BT_REQUEST;
@@ -44,8 +51,11 @@ void leecher_loop(bt_args_t *args){
       send_all(args, &msg); //send out the request message to all peers
       read_from_peer(args->peers[0], &response, args); //get response
       begin += MAXBLOCK;
+      bytes += min(remaining, MAXBLOCK); 
       sleep(1);
     }
+    //done with current piece, setbitfield
+    set_bitfield(args, current);
   
   }
   //fclose(args->fp);

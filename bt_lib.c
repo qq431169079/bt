@@ -275,7 +275,7 @@ int read_from_peer(peer_t *peer, bt_msg_t *msg, bt_args_t *args) {
   }
 
   msg = (bt_msg_t *)readbuf;
-  int piece_index, block;
+  int piece_index, block, have;
   bt_piece_t piece; //this little piece of ....
   if(msg->length == 0){
     printf("received keep alive message\n");
@@ -311,14 +311,8 @@ int read_from_peer(peer_t *peer, bt_msg_t *msg, bt_args_t *args) {
           sprintf(log_msg, "MESSAGE RESPONSE :{PIECE} for piece:%d(%d) to %s\n",
                   piece_index, block, ip);
           LOGGER(logfile, 1, log_msg);
-          //length = load_piece(args, &piece); //load the piece if we have it
-          //response.length = length;
-          //response.bt_type = BT_PIECE;
-          //response.payload.piece = piece;
           printf("sending out response for piece %d, begin %d\n", piece_index, block);
-          //send_to_peer(peer, &response);
           send_blocks(peer, msg->payload.request, args);
-          printf("response sent\n");
         }
         break;
       
@@ -336,18 +330,54 @@ int read_from_peer(peer_t *peer, bt_msg_t *msg, bt_args_t *args) {
            LOGGER(logfile, 1, log_msg);
            //TODO print stats here
            piece = msg->payload.piece;
-           save_piece(args, &piece, msg->length - 8);
-           if ((args->downloading > 0) && (args->downloading != piece_index)){
-             //we have just changed the piece we are downloading, so must be 
-             //done with previous piece
-             args->downloading = piece_index;
-             set_bitfield(args, piece_index); //we now have it
-             //TODO send out have message
-             
-
-           }
+           //save_piece(args, &piece, msg->length - 8);
+           save_piece(args, &piece, strlen(piece.piece)); //another hack
 
         }
+        break;
+
+      case BT_INTERESTED:
+        printf("received interested message from %s\n", ip );
+        sprintf(log_msg, "MESSAGE RECEIVED :{INTERESTED} from %s\n",ip);
+        LOGGER(logfile, 1, log_msg);
+        peer->interested = 1;
+        break;
+
+      case BT_NOT_INTERESTED:
+        printf("received not interested message from %s\n", ip );
+        sprintf(log_msg, "MESSAGE RECEIVED :{NOT_INTERESTED} from %s\n",ip);
+        LOGGER(logfile, 1, log_msg);
+        peer->interested = 0;
+        break;
+      
+      case BT_CHOKE:
+        printf("received choke message from %s\n", ip );
+        sprintf(log_msg, "MESSAGE RECEIVED :{CHOKE} from %s\n",ip);
+        LOGGER(logfile, 1, log_msg);
+        peer->choked = 1;
+        break;
+      
+      case BT_UNCHOKE:
+        printf("received unchoke message from %s\n", ip );
+        sprintf(log_msg, "MESSAGE RECEIVED :{UNCHOKE} from %s\n",ip);
+        LOGGER(logfile, 1, log_msg);
+        peer->choked = 0;
+        break;
+
+      case BT_CANCEL:
+        printf("received cancel message from %s\n", ip );
+        sprintf(log_msg, "MESSAGE RECEIVED :{CANCEL} from %s\n",ip);
+        LOGGER(logfile, 1, log_msg);
+        //herp derp
+        break;
+
+      case BT_HAVE:
+        have = msg->payload.have;  
+        printf("received have message from %s for piece %d\n", ip, have );
+        sprintf(log_msg, "MESSAGE RECEIVED :{HAVE} for piece %d from %s\n",have,ip);
+        LOGGER(logfile, 1, log_msg);
+        //herp derp
+        //update the peers bitfield
         break;
 
       default:
@@ -596,7 +626,19 @@ void print_bits(char byte){
 //comment on whether current piece has been downloaded
 //successfully. Check the download file and read in the 
 //piece data from there
-int piece_download_complete(bt_args_t *args, int index){
+int piece_bytes_left(bt_args_t *args, int index, int bytes){
+  int flen = args->bt_info->length;
+  int piece_len = args->bt_info->piece_length;
+
+  if (flen < piece_len) //the special case
+    return (flen - bytes);
+  return (piece_len - bytes); 
+}
+
+//comment on whether current piece has been downloaded
+//successfully. Check the download file and read in the 
+//piece data from there
+int piece_download_complete_foo(bt_args_t *args, int index, int bytes){
   int len;
   int length = args->bt_info->piece_length;
   unsigned char result_hash[20];

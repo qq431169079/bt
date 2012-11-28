@@ -198,7 +198,7 @@ void parse_args(bt_args_t * bt_args, int argc,  char * argv[]){
   
   //open the file to download to
   printf("Opening the file for download\n");
-  bt_args->fp = fopen(bt_args->save_file, "w+");
+  bt_args->fp = fopen(bt_args->save_file, "wb+");
   return ;
 }
 

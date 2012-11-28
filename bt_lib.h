@@ -138,7 +138,7 @@ typedef struct bt_msg{
     bt_request_t request; //request messge
     bt_request_t cancel; //cancel message, same type as request
     bt_piece_t piece; //a piece message
-    char data[0];//pointer to start of payload, just incase
+    char data[1];//pointer to start of payload, just incase
   }payload;
 
 } bt_msg_t;
@@ -155,7 +155,7 @@ int send_blocks(peer_t *peer, bt_request_t request, bt_args_t *args); //send bac
 int init_socket(bt_args_t *args); //initialize the listening socket
 int poll_peers(bt_args_t *bt_args); //poll peers for info
 void fill_listen_buff(struct sockaddr_in *destaddr, int port);
-int piece_download_complete(bt_args_t *args, int index);
+int piece_bytes_left(bt_args_t *args, int index, int bytes);
 void print_bits(char byte); //print bits in a byte
 /*choose a random id for this node*/
 unsigned int select_id();
