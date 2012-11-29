@@ -100,16 +100,6 @@ void calc_id(char * ip, unsigned short port, char *id){
 }
 
 
-unsigned int select_id() {
-  //TODO
-  return 0;
-}
-
-
-int drop_peer(peer_t *peer, bt_args_t *bt_args) {
-  //TODO
-  return 0;
-}
 
 /**
  * init_peer(peer_t * peer, int id, char * ip, unsigned short port) -> int
@@ -306,8 +296,8 @@ int read_from_peer(peer_t *peer, bt_msg_t *msg, bt_args_t *args) {
         if (args->verbose)
           printf("received a request for a piece %d length %d\n",
                  piece_index, msg->payload.request.length);
-        sprintf(log_msg, "MESSAGE RECEIVED :{REQUEST} for piece:%d from %s\n",
-                piece_index, ip);
+        sprintf(log_msg, "MESSAGE RECEIVED :{REQUEST} for piece:%d.(%d) from %s\n",
+                piece_index, block, ip);
         LOGGER(logfile, 1, log_msg);
         
         //TODO: if we have the piece, send out the piece
@@ -323,10 +313,11 @@ int read_from_peer(peer_t *peer, bt_msg_t *msg, bt_args_t *args) {
       
       case BT_PIECE:
         piece_index = msg->payload.piece.index;
+        block = msg->payload.piece.begin;
         if (args->verbose)
           printf("received a piece of length %d\n", msg->length);
-        sprintf(log_msg, "MESSAGE RECEIVED :{PIECE} received file piece:%d from %s\n",
-                piece_index, ip);
+        sprintf(log_msg, "MESSAGE RECEIVED :{PIECE} received file piece:%d.(%d) from %s\n",
+                piece_index, block, ip);
         LOGGER(logfile, 1, log_msg);
         
         //if we already have the piece, just ignore the message
@@ -825,6 +816,35 @@ int pieces_count(bt_args_t *args){
   }
 
  return count;
+}
+
+//return the index of the peer from the args list
+//return -1 if the peer doesn't exist
+int peer_index(peer_t *peer, bt_args_t *args){
+  int i;
+  int index = 1;
+  for (i=0;i<MAX_CONNECTIONS;i++){
+    if (args->peers[i]){
+      if(strncmp((const char *)args->peers[i]->id, (const char *)peer->id, ID_SIZE) == 0){
+        index = i;
+        break;
+      }
+    }
+  }
+
+  return index; //return -1 if entry not found
+}
+
+//drop peers from the bt_args structure
+//reset the pollfd in that structure
+int drop_peer(peer_t *peer, bt_args_t *args){
+  int index = peer_index(peer, args);
+  if (index >= 0){
+    free(args->peers[index]); //free the memory
+    args->peers[index] = NULL; //remove the entry
+    args->poll_sockets[index].events = 0; //no activity on this socket
+  }
+  return index;
 }
 
 //add a new peer to the swarm

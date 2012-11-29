@@ -161,58 +161,22 @@ int piece_bytes_left(bt_args_t *args, int index, int bytes);
 void print_bits(char byte); //print bits in a byte
 int pieces_count(bt_args_t *args); //count number of pieces in byte
 void print_stats(bt_args_t *args, int blocks); //print out download statistics
-/*choose a random id for this node*/
 unsigned int select_id();
-
-/*propogate a peer_t struct and add it to the bt_args structure*/
 int add_peer(peer_t *peer, bt_args_t *bt_args, char *ip, unsigned short port);
-
-/*drop an unresponsive or failed peer from the bt_args*/
-int drop_peer(peer_t *peer, bt_args_t *bt_args);
-
-/* initialize connection with peers */
+int drop_peer(peer_t *peer, bt_args_t *args);
 int init_peer(peer_t *peer, char * id, char * ip, unsigned short port);
-
-
-/*calc the peer id based on the string representation of the ip and
-  port*/
 void calc_id(char * ip, unsigned short port, char * id);
-
-/* print info about this peer */
 void print_peer(peer_t *peer);
-
-/* check status on peers, maybe they went offline? */
 int check_peer(peer_t *peer);
-
-//send the msg to a log-file
 void LOGGER(char *log, int type, char *msg);
 void INIT_LOGGER(char *log);
-/*check if peers want to send me something*/
-
-/*send a msg to a peer*/
+int peer_index(peer_t *peer, bt_args_t *args); //return the index of the peer
 int send_to_peer(peer_t *peer, bt_msg_t *msg);
-
-/*read a msg from a peer and store it in msg*/
 int read_from_peer(peer_t *peer, bt_msg_t *msg, bt_args_t *args);
-
-
-/* save a piece of the file */
 int save_piece(bt_args_t *bt_args, bt_piece_t *piece, int size);
-
-/*load a piece of the file into piece */
 int load_piece(bt_args_t *bt_args, bt_piece_t *piece, int length);
-
-/*load the bitfield into bitfield*/
 int get_bitfield(bt_args_t * bt_args, bt_bitfield_t *bitfield);
-
-/*compute the sha1sum for a piece, store result in hash*/
 int sha1_piece(char *piece, int length, unsigned char *hash);
-
-
-/*Contact the tracker and update bt_args with info learned, 
-  such as peer list*/
 int contact_tracker(bt_args_t * bt_args);
-
-
 
 #endif

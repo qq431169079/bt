@@ -52,7 +52,7 @@ void leecher_loop(bt_args_t *args){
       begin += MAXBLOCK;
       bytes += min(remaining, MAXBLOCK);
       print_stats(args, bytes);
-      sleep(1);
+      //sleep(1);
     }
     //done with current piece, setbitfield
     set_bitfield(args, current);
