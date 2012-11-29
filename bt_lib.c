@@ -267,7 +267,6 @@ int read_from_peer(peer_t *peer, bt_msg_t *msg, bt_args_t *args) {
   }
 
   msg = (bt_msg_t *)readbuf;
-  printf("msg->length = %d\n", msg->length);
   if (msg->length > 0){//there is more data to read on the line
     if (read(peer->sockfd, (readbuf + bytes), msg->length)<0){ //done reading
       perror("read");
@@ -337,8 +336,8 @@ int read_from_peer(peer_t *peer, bt_msg_t *msg, bt_args_t *args) {
            LOGGER(logfile, 1, log_msg);
            //TODO print stats here
            piece = msg->payload.piece;
-           //save_piece(args, &piece, msg->length - 8);
-           save_piece(args, &piece, strlen(piece.piece)); //another hack
+           save_piece(args, &piece, msg->length - 8);
+           //save_piece(args, &piece, strlen(piece.piece)); //another hack
 
         }
         break;
@@ -599,7 +598,7 @@ int save_piece(bt_args_t *args, bt_piece_t *piece, int size){
   }
   bytes = fwrite(piece->piece, 1, size, fp);
   rewind(fp); //courtesy rewind
-  printf("%s\n", piece->piece);
+  //printf("%s\n", piece->piece);
   fflush(fp);
   return bytes;
 }
@@ -778,6 +777,54 @@ void LOGGER(char *log, int type, char *msg){
   }
   fclose(fp); //close the file
   return;
+}
+
+//print out the statistics when we are downloading anything
+//implement a small progress bar in there with the percentage
+//of the file downloaded
+void print_stats(bt_args_t *args, int blocks){
+  int peers = 0;
+  float percentage; //percentage of the file downloaded
+  char *fname = args->save_file; //download file name
+  int downloaded = (pieces_count(args) * args->bt_info->piece_length) + blocks;
+  int uploaded = 0;
+  int i, bars;
+
+  percentage = (100.0 * downloaded)/args->bt_info->length;
+  bars = percentage/10;
+  char *progress = malloc(10);
+  memset(progress, '|', bars);
+  progress[bars] = '\0'; //null terminate the string
+
+  for (i=0; i < MAX_CONNECTIONS; i++){
+    if (args->peers[i])
+      peers++;
+  }
+
+  printf("File: %s Progress [%-10s] %.1f %% Peers %d Downloaded %d KB Uploaded %d KB\n",
+        fname, progress, percentage, peers, downloaded, uploaded);
+  printf("\r"); //carriage return
+  fflush(stdout);
+  free(progress);
+}
+
+//return a count of all the pieces we currently have
+//utilize our bitfield to check what we have and what 
+//we dont have
+int pieces_count(bt_args_t *args){
+  int i,j;
+  int count = 0;
+  int bytes = args->bitfield.size;
+  char *bits = args->bitfield.bitfield; 
+
+  for (i=0; i< bytes;i++){
+    for (j=0;j<8;j++){
+      if (bits[i] & (1 << j))
+        count++;
+    }
+  }
+
+ return count;
 }
 
 //add a new peer to the swarm

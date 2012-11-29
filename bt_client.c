@@ -40,7 +40,6 @@ void leecher_loop(bt_args_t *args){
     while (remaining > 0){
       //while((remaining = piece_bytes_left(args, current, bytes)) > 0){
       remaining = piece_bytes_left(args, current, bytes);
-      printf("\t beginning at index %d\n", begin);
       request.index = current;
       request.begin = begin;
       request.length = min(remaining, MAXBLOCK); 
@@ -51,7 +50,8 @@ void leecher_loop(bt_args_t *args){
       send_all(args, &msg); //send out the request message to all peers
       read_from_peer(args->peers[0], &response, args); //get response
       begin += MAXBLOCK;
-      bytes += min(remaining, MAXBLOCK); 
+      bytes += min(remaining, MAXBLOCK);
+      print_stats(args, bytes);
       sleep(1);
     }
     //done with current piece, setbitfield

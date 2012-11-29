@@ -57,7 +57,7 @@
 #define MAXMSG 1500 //size of largest message
 
 typedef struct {
-  size_t size;  //number of bytes for the bitfield
+  int size;  //number of bytes for the bitfield
   char bitfield[MAXSIZE]; //bitfield where each bit represents a piece that
 } bt_bitfield_t;
 
@@ -146,18 +146,21 @@ typedef struct bt_msg{
 
 
 int parse_bt_info(bt_info_t *info, be_node *node);
+int ceiling(int dividend, int divisor); //helper for getting the ceiling of a divide
 int select_download_piece(bt_args_t *args); //get the piece to start downloading
 int select_upload_piece(bt_args_t *args); //get the piece to start uploading
 int ceiling(int dividend, int divisor); //mimic ceil()
 int set_bitfield(bt_args_t *args, int index); //set bitfield
 int send_all(bt_args_t *args, bt_msg_t *msg);//send message to all your peers
 int own_piece(bt_args_t *args, int piece); //do we have own this piece
-int send_blocks(peer_t *peer, bt_request_t request, bt_args_t *args); //send back the requested 
+int send_blocks(peer_t *peer, bt_request_t request, bt_args_t *args); //send blocks
 int init_socket(bt_args_t *args); //initialize the listening socket
 int poll_peers(bt_args_t *bt_args); //poll peers for info
 void fill_listen_buff(struct sockaddr_in *destaddr, int port);
 int piece_bytes_left(bt_args_t *args, int index, int bytes);
 void print_bits(char byte); //print bits in a byte
+int pieces_count(bt_args_t *args); //count number of pieces in byte
+void print_stats(bt_args_t *args, int blocks); //print out download statistics
 /*choose a random id for this node*/
 unsigned int select_id();
 
@@ -171,7 +174,6 @@ int drop_peer(peer_t *peer, bt_args_t *bt_args);
 int init_peer(peer_t *peer, char * id, char * ip, unsigned short port);
 
 
-int ceiling(int dividend, int divisor); //helper for getting the ceiling of a divide
 /*calc the peer id based on the string representation of the ip and
   port*/
 void calc_id(char * ip, unsigned short port, char * id);
