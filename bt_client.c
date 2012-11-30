@@ -71,14 +71,14 @@ void leecher_loop(bt_args_t *args){
       begin += MAXBLOCK;
       bytes += min(remaining, MAXBLOCK);
       print_stats(args, bytes);
-      //sleep(1);
     }
     //done with current piece, setbitfield
     set_bitfield(args, current);
   
   }
-  fclose(args->fp);
-  fclose(args->fin);
+  //fclose(args->fp);
+  //fclose(args->fin);
+  return;
 
 }
 
@@ -149,7 +149,6 @@ int main(int argc, char * argv[]){
   printf("Starting Main Loop\n");
   if (bt_args.leecher){
     leecher_loop(&bt_args);
-    return 0;
   }
   
   while(1){
