@@ -137,6 +137,7 @@ typedef struct bt_msg{
 } bt_msg_t;
 
 //Function Prototypes
+void intro(); //just print out an introduction to the app
 int parse_bt_info(bt_info_t *info, be_node *node); //parse be_node data
 int ceiling(int dividend, int divisor); //helper for getting the ceiling of a divide
 int select_download_piece(bt_args_t *args); //get the piece to start downloading

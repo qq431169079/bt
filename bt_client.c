@@ -102,7 +102,9 @@ int main(int argc, char * argv[]){
   char log_entry[80];
   //bt_request_t request; //reusable request message
   parse_args(&bt_args, argc, argv);
-
+ 
+  //print header
+  intro();
   if(bt_args.verbose){
     printf("Args:\n");
     printf("verbose: %d\n",bt_args.verbose);

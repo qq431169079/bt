@@ -868,3 +868,13 @@ int add_peer(peer_t *peer, bt_args_t *args, char *ip, unsigned short port){
 
   return -1; //on failure
 }
+
+//print out the intro
+void intro(){
+  printf("===================================================================\n");
+  printf("myTORRENT Version 1.0\n");
+  printf("(c) 2012 Swarthmore College\n");
+  printf("CS43 Final Lab\n");
+  printf("===================================================================\n");
+  return;
+}
