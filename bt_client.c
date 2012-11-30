@@ -21,18 +21,16 @@
 #define max( a, b ) ( ((a) > (b)) ? (a) : (b) )
 #define min( a, b ) ( ((a) < (b)) ? (a) : (b) )
 
-bt_args_t bt_args; //global struct holding the application's state
+int LIVENESS_CHECK_PENDING = 0;
 
-/*************************************************************
- * Default signal handler
- * Currently set up to specifically handle SIGINT (cntrl-C)
- * signals that are sent to the process.
- * ***********************************************************/
+//our signal handler for use with checking the current health and
+//aliveness of all peers we currently know of.
+//not directly calling check_all() from here since we dont want to 
+//disturb any reads or writes that might be in progress
 void handler(int signum){ //signal handler 
   switch(signum){
     case SIGALRM:
-      check_all(&bt_args); //check status of all peers
-      alarm(LIFEPERIOD); //reset the alarm
+      LIVENESS_CHECK_PENDING = 1; //read to check!
       break;
     default:
       printf("Unhandled Exception (%d)\n", signum);
@@ -85,7 +83,7 @@ void leecher_loop(bt_args_t *args){
 }
 
 int main(int argc, char * argv[]){
-  //bt_args_t bt_args; //made global
+  bt_args_t bt_args; //made global, NOT.
   be_node * node; // top node in the bencoding
   bt_info_t bt_info; //info be parsed from the be_node
   int i=0;
@@ -94,7 +92,7 @@ int main(int argc, char * argv[]){
   socklen_t addr_size = sizeof(struct sockaddr);
   struct timeval tv;
   char *ip;
-  int index, blocks_requested;
+  int index;
   bt_msg_t msg; //reusable message casing
   int pollrv; //return value from the call to poll()
   unsigned short port;
@@ -102,7 +100,7 @@ int main(int argc, char * argv[]){
   int current = 0; //current piece being analyzed
   int previous = -100; //magic number
   char log_entry[80];
-  bt_request_t request; //reusable request message
+  //bt_request_t request; //reusable request message
   parse_args(&bt_args, argc, argv);
 
   if(bt_args.verbose){
@@ -213,7 +211,15 @@ int main(int argc, char * argv[]){
          }
        }
      }
-     
+    
+    //check livelenss of peers and replace dead (or useless) peers
+    //with new potentially useful peers
+    if (LIVENESS_CHECK_PENDING){
+      check_all(&bt_args); //check status of all peers
+      alarm(LIFEPERIOD); //reset the alarm
+      LIVENESS_CHECK_PENDING = 0;
+    }
+
     //select piece to download and send out the message
     current = select_download_piece(&bt_args);
     //send the request for the current piece
@@ -245,8 +251,6 @@ int main(int argc, char * argv[]){
     //for peers that are not choked
     //   request pieaces from outcoming traffic
 
-    //check livelenss of peers and replace dead (or useless) peers
-    //with new potentially useful peers
     
     //update peers, 
   }
