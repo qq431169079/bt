@@ -55,6 +55,7 @@
 #define HDRLEN 6 //size of message header length
 #define MAXBLOCK 1024 //max block size. Standard length
 #define MAXMSG 1500 //size of largest message
+#define LIFEPERIOD 180 //seconds before we determine whether peer is dead
 
 typedef struct {
   int size;  //number of bytes for the bitfield
@@ -97,21 +98,14 @@ typedef struct {
   char id[ID_SIZE]; //this bt_clients id
   int sockets[MAX_CONNECTIONS]; //Array of possible sockets
   struct pollfd poll_sockets[MAX_CONNECTIONS]; //Arry of pollfd for polling for input
-  char *ip;
-  int port;
+  char *ip; //own IP
+  int port; //own port I am using
   int leecher; //flag for whether I am a leecher or seeder
   int downloading; //current piece being downloaded 
-  /*set once torrent is parsed*/
   bt_info_t *bt_info; //the parsed info for this torrent
-  bt_bitfield_t bitfield;  
+  bt_bitfield_t bitfield; //pieces of the file I have
 
 } bt_args_t;
-
-
-/**
- * Message structures
- **/
-
 
 typedef struct{
   int index; //which piece index
@@ -124,8 +118,6 @@ typedef struct{
   int begin; //offset within piece
   char piece[MAXBLOCK]; //pointer to start of the data for a piece
 } bt_piece_t;
-
-
 
 typedef struct bt_msg{
   int length; //length of remaining message, 
@@ -144,8 +136,8 @@ typedef struct bt_msg{
 
 } bt_msg_t;
 
-
-int parse_bt_info(bt_info_t *info, be_node *node);
+//Function Prototypes
+int parse_bt_info(bt_info_t *info, be_node *node); //parse be_node data
 int ceiling(int dividend, int divisor); //helper for getting the ceiling of a divide
 int select_download_piece(bt_args_t *args); //get the piece to start downloading
 int select_upload_piece(bt_args_t *args); //get the piece to start uploading
@@ -156,27 +148,28 @@ int own_piece(bt_args_t *args, int piece); //do we have own this piece
 int send_blocks(peer_t *peer, bt_request_t request, bt_args_t *args); //send blocks
 int init_socket(bt_args_t *args); //initialize the listening socket
 int poll_peers(bt_args_t *bt_args); //poll peers for info
-void fill_listen_buff(struct sockaddr_in *destaddr, int port);
-int piece_bytes_left(bt_args_t *args, int index, int bytes);
+void fill_listen_buff(struct sockaddr_in *destaddr, int port); //initialize listen 
+int piece_bytes_left(bt_args_t *args, int index, int bytes); //bytes pending 
 void print_bits(char byte); //print bits in a byte
 int pieces_count(bt_args_t *args); //count number of pieces in byte
 void print_stats(bt_args_t *args, int blocks); //print out download statistics
-unsigned int select_id();
-int add_peer(peer_t *peer, bt_args_t *bt_args, char *ip, unsigned short port);
-int drop_peer(peer_t *peer, bt_args_t *args);
-int init_peer(peer_t *peer, char * id, char * ip, unsigned short port);
-void calc_id(char * ip, unsigned short port, char * id);
-void print_peer(peer_t *peer);
-int check_peer(peer_t *peer);
-void LOGGER(char *log, int type, char *msg);
-void INIT_LOGGER(char *log);
+unsigned int select_id(); //herp derp
+int add_peer(peer_t *peer, bt_args_t *bt_args, char *ip, unsigned short port); //new peer
+int drop_peer(peer_t *peer, bt_args_t *args); //forget a dead peer and its state
+int init_peer(peer_t *peer, char * id, char * ip, unsigned short port); 
+void calc_id(char * ip, unsigned short port, char * id); //calc peer id
+void print_peer(peer_t *peer); //print peer info
+int check_all(bt_args_t *args); //check liveness of all peers
+int check_peer(peer_t *peer); //check liveness of single peer
+void LOGGER(char *log, int type, char *msg); //log some messages
+void INIT_LOGGER(char *log); //initialize the message logger
 int peer_index(peer_t *peer, bt_args_t *args); //return the index of the peer
-int send_to_peer(peer_t *peer, bt_msg_t *msg);
-int read_from_peer(peer_t *peer, bt_msg_t *msg, bt_args_t *args);
-int save_piece(bt_args_t *bt_args, bt_piece_t *piece, int size);
-int load_piece(bt_args_t *bt_args, bt_piece_t *piece, int length);
-int get_bitfield(bt_args_t * bt_args, bt_bitfield_t *bitfield);
-int sha1_piece(char *piece, int length, unsigned char *hash);
-int contact_tracker(bt_args_t * bt_args);
+int send_to_peer(peer_t *peer, bt_msg_t *msg); //send message to peer
+int read_from_peer(peer_t *peer, bt_msg_t *msg, bt_args_t *args); //read peer  message
+int save_piece(bt_args_t *bt_args, bt_piece_t *piece, int size); //save file piece
+int load_piece(bt_args_t *bt_args, bt_piece_t *piece, int length); //load file piece
+int get_bitfield(bt_args_t * bt_args, bt_bitfield_t *bitfield); //which pieces I have
+int sha1_piece(char *piece, int length, unsigned char *hash); //hash of piece
+int contact_tracker(bt_args_t * bt_args); //contact tracker for more details
 
 #endif

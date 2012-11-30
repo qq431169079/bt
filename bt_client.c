@@ -21,6 +21,27 @@
 #define max( a, b ) ( ((a) > (b)) ? (a) : (b) )
 #define min( a, b ) ( ((a) < (b)) ? (a) : (b) )
 
+bt_args_t bt_args; //global struct holding the application's state
+
+/*************************************************************
+ * Default signal handler
+ * Currently set up to specifically handle SIGINT (cntrl-C)
+ * signals that are sent to the process.
+ * ***********************************************************/
+void handler(int signum){ //signal handler 
+  switch(signum){
+    case SIGALRM:
+      check_all(&bt_args); //check status of all peers
+      alarm(LIFEPERIOD); //reset the alarm
+      break;
+    default:
+      printf("Unhandled Exception (%d)\n", signum);
+      break;
+  }
+}
+
+//leecher main loop, when we are busy leeching and not seeding
+//anything
 void leecher_loop(bt_args_t *args){
   //determine which pieces to request
   int current=0;
@@ -64,11 +85,10 @@ void leecher_loop(bt_args_t *args){
 }
 
 int main(int argc, char * argv[]){
-  bt_args_t bt_args;
+  //bt_args_t bt_args; //made global
   be_node * node; // top node in the bencoding
   bt_info_t bt_info; //info be parsed from the be_node
   int i=0;
-  int num_peers = 0;
   int sockfd, client_sock;
   struct sockaddr_in client_addr;
   socklen_t addr_size = sizeof(struct sockaddr);
@@ -84,11 +104,6 @@ int main(int argc, char * argv[]){
   char log_entry[80];
   bt_request_t request; //reusable request message
   parse_args(&bt_args, argc, argv);
-
-  //count number of initial peers
-  while (bt_args.peers[i])
-    i++;
-  num_peers = i;
 
   if(bt_args.verbose){
     printf("Args:\n");
@@ -122,10 +137,14 @@ int main(int argc, char * argv[]){
   //initialize connections
   sockfd = init_socket(&bt_args); //initialize listening socket
   handshake_all(&bt_args); //send out the handshake
-
   tv.tv_sec = 0;
   tv.tv_usec = 50;
-  
+ 
+  //register some signals and fire them!
+  signal(SIGALRM, handler);
+  alarm(LIFEPERIOD); //set the alarm to check for liveness of peers
+
+
   //main client loop
   printf("Starting Main Loop\n");
   if (bt_args.leecher){

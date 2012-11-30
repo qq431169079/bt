@@ -113,7 +113,7 @@ void calc_id(char * ip, unsigned short port, char *id){
  * ip address.
  *   
  **/
-int init_peer(peer_t *peer, char * id, char * ip, unsigned short port){
+int init_peer(peer_t *peer, char *id, char *ip, unsigned short port){
     
   struct hostent * hostinfo;
   //set the host id and port for referece
@@ -145,12 +145,8 @@ int init_peer(peer_t *peer, char * id, char * ip, unsigned short port){
 
 }
 
-/**
- * print_peer(peer_t *peer) -> void
- *
- * print out debug info of a peer
- *
- **/
+//print out a peer's information
+//more of a debug function than anything else
 void print_peer(peer_t *peer){
   int i;
 
@@ -179,18 +175,34 @@ int send_all(bt_args_t *args, bt_msg_t *msg){
   return 0;
 }
 
-int check_peer(peer_t *peer) {
-  //TODO
-  //need to figure out how this is going to work
-  // -- new type of message perhaps?
-  // -- respond immediately when you get this...
-  // -- timeout indicates they are offline
+//checks the alive status of all the peers we have in our collection.
+//Kills of any peers that we think might be dead or we have lost
+//connection with
+int check_all(bt_args_t *args){
+  int i;
+  for (i=0;i<MAX_CONNECTIONS;i++){
+    if(args->peers[i]){ //is this a valid peer
+      check_peer(args->peers[i]);
+    }
+  }
   return 0;
 }
 
-int poll_peers(bt_args_t *bt_args) {
-  //TODO
-  return 0;
+//check whether a peer is alive or not, make use of the tv field within each
+//peer that is updated whenever we hear something new from peer or whenever
+//we hear a keep alive message from them
+int check_peer(peer_t *peer) {
+  struct timeval tv;
+  if (gettimeofday(&tv, NULL) < 0){
+    perror("gettimeofday");
+    return TRUE; //since this is our problem, give benefit of the doubt
+  }
+
+  if ((tv.tv_sec - peer->tv.tv_sec) > LIFEPERIOD){ //more than 3 min since last
+    return FALSE; //uh-oh dead
+  }
+  
+  return TRUE; //haha, still alive suckers
 }
 
 //send a message to peer
@@ -228,22 +240,10 @@ int send_blocks(peer_t *peer, bt_request_t request, bt_args_t *args){
   return 0; //on success
 }
 
+//read from peers, generic function for handling all cases when we
+//might need to read from a peer. Has functionality to handle all
+//message types from here.
 int read_from_peer(peer_t *peer, bt_msg_t *msg, bt_args_t *args) {
-  //TODO
-  //note: when writing the pseudocode here I basically
-  //unintenionally ignored the fact that some peers
-  //are choked and others aren't
-  //
-  //need to address this...
-  //
-  //we have list of peer pointers in bt_args_t
-  //
-  //Question: How do we keep track of which peers are choked
-  //and which ones are unchoked???
-  //
-  //IN THE STRUCT PEER!!!  type peer_t
-  //
-  //
   //bt_msg_t response; //reusable response message
   char *logfile = args->log_file; 
   char log_msg[80]; //log message buffer
@@ -267,13 +267,17 @@ int read_from_peer(peer_t *peer, bt_msg_t *msg, bt_args_t *args) {
   msg = (bt_msg_t *)readbuf;
   int piece_index, block, have;
   bt_piece_t piece; //this little piece of ....
+
+  //for every message we receive, update the timestamp in the peer
+  if (gettimeofday(&(peer->tv), NULL) < 0)
+    perror("gettimeofday");
+
+
   if(msg->length == 0){
     if (args->verbose)
       printf("received keep alive message\n");
     sprintf(log_msg, "MESSAGE RECEIVED :{KEEP_ALIVE} from %s\n", ip);
     LOGGER(logfile, 1, log_msg);
-    //just a keep alive message
-    return 0;
   }
   
   else{
@@ -300,7 +304,6 @@ int read_from_peer(peer_t *peer, bt_msg_t *msg, bt_args_t *args) {
                 piece_index, block, ip);
         LOGGER(logfile, 1, log_msg);
         
-        //TODO: if we have the piece, send out the piece
         if (own_piece(args, piece_index)){
           sprintf(log_msg, "MESSAGE RESPONSE :{PIECE} for piece:%d(%d) to %s\n",
                   piece_index, block, ip);
