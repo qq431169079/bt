@@ -3,7 +3,7 @@ CPFLAGS=-g -Wall
 LDFLAGS= -lcrypto
 
 
-SRC= bencode.c  bt_client.c bt_lib.c bt_setup.c bt_connect.c 
+SRC= bencode.c  bt_client.c bt_lib.c bt_setup.c bt_connect.c bt_message.c 
 OBJ=$(SRC:.c=.o)
 BIN=bt_client
 

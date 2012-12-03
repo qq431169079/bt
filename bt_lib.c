@@ -212,8 +212,8 @@ int send_to_peer(peer_t *peer, bt_msg_t *msg) {
   char sendbuf[len];
   memcpy(sendbuf, msg, len);
   bytes = write(peer->sockfd, sendbuf, len);
-  if (bytes < 0)
-    perror("send_to_peer: write()");
+  //if (bytes < 0)
+  //  perror("send_to_peer: write()");
   return bytes;
 }
 

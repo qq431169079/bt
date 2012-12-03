@@ -32,6 +32,8 @@ void handler(int signum){ //signal handler
     case SIGALRM:
       LIVENESS_CHECK_PENDING = 1; //read to check!
       break;
+    case SIGPIPE:
+      break; //do nothing when you get a sigpipe
     default:
       printf("Unhandled Exception (%d)\n", signum);
       break;
@@ -142,6 +144,7 @@ int main(int argc, char * argv[]){
  
   //register some signals and fire them!
   signal(SIGALRM, handler);
+  signal(SIGPIPE, handler);
   alarm(LIFEPERIOD); //set the alarm to check for liveness of peers
 
 
@@ -156,7 +159,6 @@ int main(int argc, char * argv[]){
     FD_ZERO(&listen_set); //initialize
     FD_SET(sockfd, &listen_set); //make sockfd a non-blocking listener
     if (select(sockfd+1, &listen_set, (fd_set *)0, (fd_set *)0, &tv) > 0){
-      printf("accepted\n");
       if ((client_sock = accept(sockfd, (struct sockaddr *)&client_addr, &addr_size))<0){
         perror("accept");
         continue;
@@ -168,6 +170,7 @@ int main(int argc, char * argv[]){
         LOGGER(bt_args.log_file, 1, log_entry);
       }
       
+      printf("accepted new connection from %s\n", ip);
       if (leecher_handshake(client_sock, bt_args.bt_info->name, bt_args.id,&client_addr)){
         port = ntohs(client_addr.sin_port);
         sprintf(log_entry, "HANDSHAKE SUCCESS with peer:%s on port:%d\n", ip, port);
