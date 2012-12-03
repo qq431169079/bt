@@ -8,7 +8,6 @@
 #include "bt_lib.h"
 #include "bencode.h"
 
-
 /**
  * usage(FILE * file) -> void
  *
@@ -112,7 +111,6 @@ void parse_args(bt_args_t * bt_args, int argc,  char * argv[]){
   int ch; //ch for each flag
   int n_peers = 0;
   int i;
-
   /* set the default args */
   bt_args->verbose=0; //no verbosity
   
@@ -120,6 +118,7 @@ void parse_args(bt_args_t * bt_args, int argc,  char * argv[]){
   memset(bt_args->save_file,0x00,FILE_NAME_MAX);
   memset(bt_args->torrent_file,0x00,FILE_NAME_MAX);
   memset(bt_args->log_file,0x00,FILE_NAME_MAX);
+  memset(bt_args->saved_as,0x00,FILE_NAME_MAX);
   
   //null out file pointers
   bt_args->fp = NULL;
@@ -139,8 +138,9 @@ void parse_args(bt_args_t * bt_args, int argc,  char * argv[]){
   bt_args->port = INIT_PORT;
   bt_args->leecher = 0; //leecher
   bt_args->downloading = 0; //current downloading piece. Set to random #
+  bt_args->restart = 0; //is this a restart?
 
-  while ((ch = getopt(argc, argv, "hp:s:l:vI:b:")) != -1) {
+  while ((ch = getopt(argc, argv, "hr:p:s:l:vI:b:")) != -1) {
     switch (ch) {
     case 'h': //help
       usage(stdout);
@@ -148,6 +148,10 @@ void parse_args(bt_args_t * bt_args, int argc,  char * argv[]){
       break;
     case 'v': //verbose
       bt_args->verbose = 1;
+      break;
+    case 'r': //restart
+      bt_args->restart = 1;
+      strncpy(bt_args->saved_as, optarg, FILE_NAME_MAX);
       break;
     case 'b': //port number
       bt_args->port = atoi(optarg);
@@ -182,7 +186,6 @@ void parse_args(bt_args_t * bt_args, int argc,  char * argv[]){
       exit(1);
     }
   }
-
 
   argc -= optind;
   argv += optind;

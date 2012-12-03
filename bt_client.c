@@ -127,7 +127,11 @@ int main(int argc, char * argv[]){
   node = load_be_node(bt_args.torrent_file);
   parse_bt_info(&bt_info, node);
   bt_args.bt_info = &bt_info;
+  if (bt_args.restart) //handle restarts
+    __fcopy__(bt_args.saved_as, bt_args.bt_info->name); //backup the partial
+
   bt_args.fin = fopen(bt_args.bt_info->name, "a+"); //open the source file
+  
   if(bt_args.verbose){
     be_dump(node);
   }

@@ -94,11 +94,13 @@ typedef struct {
   FILE *fin; //the fin to the file to read from
   char log_file[FILE_NAME_MAX];//the log file
   char torrent_file[FILE_NAME_MAX];// *.torrent file
+  char saved_as[FILE_NAME_MAX]; //previously saved as
   peer_t * peers[MAX_CONNECTIONS]; // array of peer_t pointers
   char id[ID_SIZE]; //this bt_clients id
   int sockets[MAX_CONNECTIONS]; //Array of possible sockets
   struct pollfd poll_sockets[MAX_CONNECTIONS]; //Arry of pollfd for polling for input
   char *ip; //own IP
+  int restart; //is this a restart
   int port; //own port I am using
   int leecher; //flag for whether I am a leecher or seeder
   int downloading; //current piece being downloaded 
@@ -172,5 +174,5 @@ int load_piece(bt_args_t *bt_args, bt_piece_t *piece, int length); //load file p
 int get_bitfield(bt_args_t * bt_args, bt_bitfield_t *bitfield); //which pieces I have
 int sha1_piece(char *piece, int length, unsigned char *hash); //hash of piece
 int contact_tracker(bt_args_t * bt_args); //contact tracker for more details
-
+int __fcopy__(char *source, char *dest);
 #endif
