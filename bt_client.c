@@ -17,6 +17,7 @@
 #include "bt_lib.h"
 #include "bt_setup.h"
 #include "bt_connect.h"
+#include "bt_message.h"
 
 #define max( a, b ) ( ((a) > (b)) ? (a) : (b) )
 #define min( a, b ) ( ((a) < (b)) ? (a) : (b) )
@@ -49,7 +50,7 @@ void leecher_loop(bt_args_t *args){
   int bytes, remaining;
   bt_request_t request;
   bt_msg_t msg;
-  bt_msg_t response;
+  bt_msg_t response, have;
  
   printf("leecher main loop\n");
   while((current = select_download_piece(args)) != -1){
@@ -76,10 +77,10 @@ void leecher_loop(bt_args_t *args){
     }
     //done with current piece, setbitfield
     set_bitfield(args, current);
+    have_message(&have, current); //populate the message struct
+    send_all(args, &have); //notify everyone we now have the piece
   
   }
-  //fclose(args->fp);
-  //fclose(args->fin);
   return;
 
 }

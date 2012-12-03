@@ -1,8 +1,10 @@
+myTORRENT (c) 2012
+CS43 Lab 05
+Steve Dini : sdini1
+***************************************************************
 
-This is skeleton development for your BitTorrent (BT) client. 
-
-Included Files and Purpose
-
+1. Included Files and Purpose
+=============================
 bt_client.c   :   Main file where the control loop lives
 bt_setup.c    :   Contains setup code, such as parsing arguments
 bencode.c     :   Code for parsing bencoded torrent files
@@ -17,5 +19,27 @@ Suggested Additional Files [and headers]
 bt_io.c[.h]   :   File for handing input output
 bt_sock.c[.h] :   File for handling socket and network issues
 
+2. Handling Client Failures
+===========================
+To handle client failures, we put in a bunch of measures that would prevent
+our application from crashing. Notably, with the polling mechanism we have,
+if a client all of a sudden dies, we have no way of checking their status 
+until after the 2 minute window in which case we might get a SIGPIPE and the
+application dies.
+  We handled this by creating a signal handler for SIGPIPE which as you guessed
+does nothing more than protecting the program from crashing. We also registered
+a signal handler for SIGALRM. The idea behind this is that we check the status
+of a peer after every 2 minutes. If peer has died within that time interval,
+its timestamp value would have timedout at the point in which place we drop the
+peer and close its connection from our end and open up its slot for new 
+connections that might want to share data with us.
+
+3. Handling Restarts
+====================
+
+4. Handling Multiple Peers
+==========================
+
+5.
 
 
