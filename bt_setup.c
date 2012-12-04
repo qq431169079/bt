@@ -31,6 +31,7 @@ void usage(FILE * file){
           "                \t use this peer instead, ip:port (ip or hostname)\n"
           "                \t (include multiple -p for more than 1 peer)\n"
           "  -I id         \t Set the node identifier to id (dflt: random)\n"
+          "  -r filename   \t This is a restart. Filename is the previous name we saved the file\n"
           "  -v            \t verbose, print additional verbose info\n");
 }
 
