@@ -51,6 +51,7 @@ void leecher_loop(bt_args_t *args){
   bt_request_t request;
   bt_msg_t msg;
   bt_msg_t response, have;
+  int print_frequently = (args->bt_info->length < args->bt_info->piece_length) ? 1 : 0;
  
   printf("leecher main loop\n");
   while((current = select_download_piece(args)) != -1){
@@ -73,8 +74,13 @@ void leecher_loop(bt_args_t *args){
       read_from_peer(args->peers[0], &response, args); //get response
       begin += MAXBLOCK;
       bytes += min(remaining, MAXBLOCK);
-      print_stats(args, bytes);
+      if (print_frequently)
+        print_stats(args, bytes);
     }
+
+    if (print_frequently == 0) //print less frequently
+        print_stats(args, bytes);
+
     //done with current piece, setbitfield
     set_bitfield(args, current);
     have_message(&have, current); //populate the message struct
@@ -130,6 +136,7 @@ int main(int argc, char * argv[]){
   if (bt_args.restart) //handle restarts
     __fcopy__(bt_args.saved_as, bt_args.bt_info->name); //backup the partial
 
+  //NOTE: opening with 'a+' to take care of situation when file doesnt exist
   bt_args.fin = fopen(bt_args.bt_info->name, "a+"); //open the source file
   
   if(bt_args.verbose){
@@ -211,7 +218,6 @@ int main(int argc, char * argv[]){
 
     else if (pollrv != 0){ //timeout didn't occur
       //check for events on all the fds
-      //TODO weird behavior of peer dies out
       int j;
       for (j=0;j<MAX_CONNECTIONS;j++){
         if (bt_args.poll_sockets[j].revents & POLLIN){

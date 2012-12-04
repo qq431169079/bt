@@ -55,7 +55,7 @@
 #define HDRLEN 6 //size of message header length
 #define MAXBLOCK 1024 //max block size. Standard length
 #define MAXMSG 1500 //size of largest message
-#define LIFEPERIOD 180 //seconds before we determine whether peer is dead
+#define LIFEPERIOD 600 //seconds before we determine whether peer is dead
 
 typedef struct {
   int size;  //number of bytes for the bitfield
@@ -174,5 +174,7 @@ int load_piece(bt_args_t *bt_args, bt_piece_t *piece, int length); //load file p
 int get_bitfield(bt_args_t * bt_args, bt_bitfield_t *bitfield); //which pieces I have
 int sha1_piece(char *piece, int length, unsigned char *hash); //hash of piece
 int contact_tracker(bt_args_t * bt_args); //contact tracker for more details
+int interested(bt_args_t *args, peer_t *peer); //are we interested in peer
+void send_interested(bt_args_t *args); //send interested or not interested message
 int __fcopy__(char *source, char *dest);
 #endif
