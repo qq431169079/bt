@@ -482,8 +482,8 @@ int save_piece(bt_args_t *args, bt_piece_t *piece, int size){
     fprintf(stderr, "failed to offset to correct position\n");
     return ERR;
   }
-  //bytes = fwrite(piece->piece, 1, size, fp);
-  bytes = fwrite(piece->piece, 1, strlen(piece->piece), fp);
+  bytes = fwrite(piece->piece, 1, size, fp);
+  //bytes = fwrite(piece->piece, 1, strlen(piece->piece), fp);
   rewind(fp); //courtesy rewind
   //printf("%s\n", piece->piece);
   fflush(fp);
