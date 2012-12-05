@@ -72,8 +72,6 @@ int interested(bt_args_t *args, peer_t *peer){
 int send_all(bt_args_t *args, bt_msg_t *msg){
   int i;
   for (i=0;i<MAX_CONNECTIONS;i++){
-    //check if peer is good and then send out to that peer
-    //TODO check for all that choke and interested shit
     if(args->peers[i]){ //is this a valid peer
       send_to_peer(args->peers[i], msg);
     }
@@ -91,7 +89,6 @@ void send_interested(bt_args_t *args){
     if(args->peers[i]){ //valid peer
       msg = (bt_msg_t *)malloc(sizeof(bt_msg_t));
       state = interested(args, args->peers[i]);
-      printf("state %d\n", state);
       if (state)
         interested_message(msg);
       else

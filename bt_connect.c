@@ -9,6 +9,7 @@
 
 #include "bt_connect.h"
 #include "bt_lib.h"
+#include "bt_message.h"
 #include <openssl/sha.h>
 #include "bencode.h"
 
@@ -201,12 +202,14 @@ void handshake_all(bt_args_t *args){
         args->poll_sockets[i].events = POLLIN;
         
         //send our bitfield here
-        //sendout the bitfield
         msg.length = sizeof(bt_bitfield_t);
         msg.bt_type = BT_BITFIELD;
         msg.payload.bitfield = args->bitfield;
         send_to_peer(args->peers[i], &msg); //send out the message
         read_from_peer(args->peers[i], &msg, args); //listen for bitfield
+        unchoke_message(&msg);
+        send_to_peer(args->peers[i], &msg); //send out the unchoke message
+        
       }
       else{
         sprintf(init_stats, "HANDSHAKE DECLINED from peer: %s on port: %d\n", ip, port);

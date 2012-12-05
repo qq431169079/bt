@@ -271,17 +271,13 @@ int read_from_peer(peer_t *peer, bt_msg_t *msg, bt_args_t *args) {
   else{
     switch(msg->bt_type){
       case BT_BITFIELD:
-        printf("received bitfield message\n");
         if (args->verbose)
           printf("received bitfield message\n");
         sprintf(log_msg, "MESSAGE RECEIVED :{BITFIELD} from %s\n", ip);
         LOGGER(logfile, 1, log_msg);
         peer->bitfield = msg->payload.bitfield; //backup the bitfield
-        peer->choked = 0;
-        peer->interested = 1;
-        //TODO: if peer has pieces we dont have, set the peer to be unchoked
-        //      and interested
         break;
+      
       case BT_REQUEST:
         piece_index = msg->payload.request.index;
         block = msg->payload.request.begin;
@@ -293,7 +289,7 @@ int read_from_peer(peer_t *peer, bt_msg_t *msg, bt_args_t *args) {
                 piece_index, block, ip);
         LOGGER(logfile, 1, log_msg);
         
-        if (own_piece(args, piece_index)){
+        if (own_piece(args, piece_index) && peer->interested && !(peer->choked)){
           sprintf(log_msg, "MESSAGE RESPONSE :{PIECE} for piece:%d(%d) to %s\n",
                   piece_index, block, ip);
           LOGGER(logfile, 1, log_msg);
@@ -317,16 +313,12 @@ int read_from_peer(peer_t *peer, bt_msg_t *msg, bt_args_t *args) {
            sprintf(log_msg, "MESSAGE RECEIVED :{PIECE} received file piece:%d from %s\n",
                 piece_index, ip);
            LOGGER(logfile, 1, log_msg);
-           //TODO print stats here
            piece = msg->payload.piece;
            save_piece(args, &piece, msg->length - 8);
-           //save_piece(args, &piece, strlen(piece.piece)); //another hack
-
         }
         break;
 
       case BT_INTERESTED:
-        printf("received interested message from %s\n", ip );
         if (args->verbose)
           printf("received interested message from %s\n", ip );
         sprintf(log_msg, "MESSAGE RECEIVED :{INTERESTED} from %s\n",ip);
@@ -335,7 +327,6 @@ int read_from_peer(peer_t *peer, bt_msg_t *msg, bt_args_t *args) {
         break;
 
       case BT_NOT_INTERESTED:
-        printf("received not interested message from %s\n", ip );
         if (args->verbose)
           printf("received not interested message from %s\n", ip );
         sprintf(log_msg, "MESSAGE RECEIVED :{NOT_INTERESTED} from %s\n",ip);
@@ -352,6 +343,7 @@ int read_from_peer(peer_t *peer, bt_msg_t *msg, bt_args_t *args) {
         break;
       
       case BT_UNCHOKE:
+        printf("received unchoke message from %s\n", ip );
         if (args->verbose)
           printf("received unchoke message from %s\n", ip );
         sprintf(log_msg, "MESSAGE RECEIVED :{UNCHOKE} from %s\n",ip);
@@ -378,7 +370,8 @@ int read_from_peer(peer_t *peer, bt_msg_t *msg, bt_args_t *args) {
         break;
 
       default:
-        printf("unknown message type %d\n", msg->bt_type);
+        //printf("unknown message type %d\n", msg->bt_type);
+        //herp derp
         break;
     }
 
