@@ -171,6 +171,7 @@ int read_from_peer(peer_t *peer, bt_msg_t *msg, bt_args_t *args); //read peer  m
 int save_piece(bt_args_t *bt_args, bt_piece_t *piece, int size); //save file piece
 int load_piece(bt_args_t *bt_args, bt_piece_t *piece, int length); //load file piece
 int get_bitfield(bt_args_t * bt_args, bt_bitfield_t *bitfield); //which pieces I have
+int update_bitfield(peer_t *peer, int piece); //update peer's bitfield
 int sha1_piece(char *piece, int length, unsigned char *hash); //hash of piece
 int contact_tracker(bt_args_t * bt_args); //contact tracker for more details
 int __fcopy__(char *source, char *dest);

@@ -44,6 +44,17 @@ void unchoke_message(bt_msg_t *msg){
   msg->bt_type = BT_UNCHOKE;
 }
 
+//build the cancel message
+//The one for use in the end-game
+void cancel_message(bt_msg_t *msg, bt_request_t *request, int piece){
+  request->index = piece;
+  request->begin = 0;
+  request->length = MAXBLOCK;
+
+  msg->length = sizeof(bt_request_t);
+  msg->bt_type = BT_CANCEL;
+  msg->payload.request = *(request); //dereference the request
+}
 
 //check if we are interested in this peer
 //check if they have some piece we don't have

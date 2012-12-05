@@ -16,5 +16,5 @@ void choke_message(bt_msg_t *msg);
 void unchoke_message(bt_msg_t *msg);
 void interested_message(bt_msg_t *msg);
 void uninterested_message(bt_msg_t *msg);
-void cancel_message(bt_msg_t *msg);
+void cancel_message(bt_msg_t *msg, bt_request_t *request, int piece);
 #endif

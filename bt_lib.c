@@ -343,7 +343,6 @@ int read_from_peer(peer_t *peer, bt_msg_t *msg, bt_args_t *args) {
         break;
       
       case BT_UNCHOKE:
-        printf("received unchoke message from %s\n", ip );
         if (args->verbose)
           printf("received unchoke message from %s\n", ip );
         sprintf(log_msg, "MESSAGE RECEIVED :{UNCHOKE} from %s\n",ip);
@@ -356,7 +355,6 @@ int read_from_peer(peer_t *peer, bt_msg_t *msg, bt_args_t *args) {
           printf("received cancel message from %s\n", ip );
         sprintf(log_msg, "MESSAGE RECEIVED :{CANCEL} from %s\n",ip);
         LOGGER(logfile, 1, log_msg);
-        //herp derp
         break;
 
       case BT_HAVE:
@@ -365,8 +363,7 @@ int read_from_peer(peer_t *peer, bt_msg_t *msg, bt_args_t *args) {
           printf("received have message from %s for piece %d\n", ip, have );
         sprintf(log_msg, "MESSAGE RECEIVED :{HAVE} for piece %d from %s\n",have,ip);
         LOGGER(logfile, 1, log_msg);
-        //herp derp
-        //update the peers bitfield
+        update_bitfield(peer, have); //update the peers bitfield
         break;
 
       default:
@@ -374,97 +371,7 @@ int read_from_peer(peer_t *peer, bt_msg_t *msg, bt_args_t *args) {
         //herp derp
         break;
     }
-
-      /*
-      case '0':
-        //choked
-
-      case '1':
-        //unchoked
-      case '2':
-        //interested
-      case '3':
-        //not interested
-      case '4':
-        //have
-        //message indicating a peer has completed downloading a piece
-        //message is just an int indicating which piece
-        
-        //check to see if we want this piece
-        //      -- if so what offset??
-        //      int offset;
-        //      SEE CHANGE LATER BELOW
-
-        //if we want this piece, create request msg 
-        bt_msg_t newMsg;
-        
-        //length in bytes (bytes right?)
-        newMsg.length = 1 + sizeof(bt_request_t);
-        newMsg.bt_type = (unsigned char) "6";
-        
-        //creating payload
-        bt_request_t reqMsg;
-        reqMsg.index = msg->payload.have;
-        reqMsg.begin = 0;                    //CHANGE LATER....
-                                             //pull out of above check
-
-        reqMsg.length = 0;                   //CHANGE LATER 2...
-                                             //it will be this except names instead of types
-                                             //bt_args_t.bt_info->piece_length - offset;
-
-        //addeding reqMsg to newMsg
-        newMsg.payload.request = reqMsg; 
-        
-        //send request message to that peer
-        send_to_peer(peer, newMsg);
-
-        //if we don't want this piece, otherwise ignore??
-      
-      case '5':
-        //bitfield
-        //sent after a completed handshake
-        //indicates which pieces a peer has available
-
-        //decide which if any pieces we want
-        //    - mark ourselves as interested in that peer
-              // two options:
-              //  --- peer->interested = BT_INTERESTED
-              //  --- peer->interested = BT_NOT_INTERESTED
-        //    - make request message(s) for wanted piece(s)
-        //
-      case '6':
-        //request
-        //asking for download
-        
-        //is this peer choked/unchoked?
-        if (peer->choked == BT_UNCHOKE) {
-                //construct bt_piece_t message
-                //send_to_peer(peer, pieceMsg)
-        }
-        else {
-          //do we want to unchoke them??
-        }
-
-      case '7':
-        //piece
-        //piece/block of a piece
-        
-        //check to see if we wanted it (is that necessary?)
-        
-        //validate the piece against torrent file?
-        
-        //call save_piece and save it
-        
-        //announce to all other peers via have msg
-        //      - construct have msg
-        //      - for loop that run # of peer times and sends
-        //      have msg to all of them via send_to_peer
-
-      case '8':
-        //cancel
-        //peer indicating it no longers wants a piece*/
-    }
-    
+  }
   return 0;
 }
 
@@ -692,7 +599,6 @@ int get_bitfield(bt_args_t *args, bt_bitfield_t *bitfield){
   //check hashed pieces of file against piece hashes of torrent file
   for (i=0; i<bytes; i++){
     bits[i] = 0; //zero out the char
-    //printf("%d  ", bits[i]);
     for (j=0;j<8;j++){
       index = j + (i*8);
       if (index >= count) //stopping condition
@@ -720,13 +626,16 @@ int get_bitfield(bt_args_t *args, bt_bitfield_t *bitfield){
   return 0;
 }
 
-int sha1_piece(char *piece, int length,  unsigned char *hash) {
-  SHA1((unsigned char *)piece, length, hash);
-  return 0;
+int update_bitfield(peer_t *peer, int piece){
+  int base, offset;
+  base = piece/8;
+  offset = piece - (base * 8);
+  peer->bitfield.bitfield[base] = peer->bitfield.bitfield[base] | (1 << (7-offset));
+  return base;
 }
 
-int contact_tracker(bt_args_t  * bt_args) {
-  //TODO
+int sha1_piece(char *piece, int length,  unsigned char *hash) {
+  SHA1((unsigned char *)piece, length, hash);
   return 0;
 }
 

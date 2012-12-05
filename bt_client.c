@@ -50,7 +50,7 @@ void leecher_loop(bt_args_t *args){
   int bytes, remaining;
   bt_request_t request;
   bt_msg_t msg;
-  bt_msg_t response, have;
+  bt_msg_t response, have, cancel;
   int print_frequently = (args->bt_info->length < args->bt_info->piece_length) ? 1 : 0;
  
   printf("leecher main loop\n");
@@ -87,6 +87,8 @@ void leecher_loop(bt_args_t *args){
     send_all(args, &have); //notify everyone we now have the piece
   
   }
+  cancel_message(&cancel, &request, current);
+  send_all(args, &cancel); //send the end-game message
   return;
 
 }

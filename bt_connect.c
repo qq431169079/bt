@@ -59,19 +59,23 @@ void extract_attributes(be_node *node, bt_info_t *info){
 
 int __verify__(char *fname, char first, char *name, char *chaff, char *id, char *hash, 
                char *ip, unsigned short port){
+  int failed = FALSE;
   //start verification
   if ((first  & 0x13) != 0x13){
     printf("Failed on the first byte.\n");
+    failed = TRUE;
     return FALSE;
   }
 
   if (strncmp(name, "BitTorrent Protocol", 19) != 0){
     printf("Failed on Protocol Name \n");
+    failed = TRUE;
     return FALSE;
   }
 
   if (strncmp(chaff, "00000000", 8) != 0){
     printf("Failed on chaff buffer\n");
+    failed = TRUE;
     return FALSE;
   }
 
@@ -80,7 +84,7 @@ int __verify__(char *fname, char first, char *name, char *chaff, char *id, char 
   SHA1((unsigned char *) fname, strlen(fname), info_hash);
   
   if (memcmp(hash, info_hash, 20) != 0){
-    printf("Failed on the hash\n");
+    printf("failed on the file hash\n");
     return FALSE;
   }
 
@@ -88,8 +92,7 @@ int __verify__(char *fname, char first, char *name, char *chaff, char *id, char 
   calc_id(ip, INIT_PORT, id_val);
   
   if (memcmp(id, id_val, 20) != 0){
-     printf("Failed on the hash\n");
-     return ERR;
+     failed = TRUE;
   }
   return TRUE;
 
