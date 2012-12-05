@@ -146,7 +146,6 @@ int select_download_piece(bt_args_t *args); //get the piece to start downloading
 int select_upload_piece(bt_args_t *args); //get the piece to start uploading
 int ceiling(int dividend, int divisor); //mimic ceil()
 int set_bitfield(bt_args_t *args, int index); //set bitfield
-int send_all(bt_args_t *args, bt_msg_t *msg);//send message to all your peers
 int own_piece(bt_args_t *args, int piece); //do we have own this piece
 int send_blocks(peer_t *peer, bt_request_t request, bt_args_t *args); //send blocks
 int init_socket(bt_args_t *args); //initialize the listening socket
@@ -174,7 +173,5 @@ int load_piece(bt_args_t *bt_args, bt_piece_t *piece, int length); //load file p
 int get_bitfield(bt_args_t * bt_args, bt_bitfield_t *bitfield); //which pieces I have
 int sha1_piece(char *piece, int length, unsigned char *hash); //hash of piece
 int contact_tracker(bt_args_t * bt_args); //contact tracker for more details
-int interested(bt_args_t *args, peer_t *peer); //are we interested in peer
-void send_interested(bt_args_t *args); //send interested or not interested message
 int __fcopy__(char *source, char *dest);
 #endif

@@ -206,6 +206,7 @@ void handshake_all(bt_args_t *args){
         msg.bt_type = BT_BITFIELD;
         msg.payload.bitfield = args->bitfield;
         send_to_peer(args->peers[i], &msg); //send out the message
+        read_from_peer(args->peers[i], &msg, args); //listen for bitfield
       }
       else{
         sprintf(init_stats, "HANDSHAKE DECLINED from peer: %s on port: %d\n", ip, port);

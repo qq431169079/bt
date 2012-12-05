@@ -159,10 +159,12 @@ int main(int argc, char * argv[]){
   signal(SIGPIPE, handler);
   alarm(LIFEPERIOD); //set the alarm to check for liveness of peers
 
+  //send out interested or not-interested messages
+  send_interested(&bt_args);
 
   //main client loop
   printf("Starting Main Loop\n");
-  if (bt_args.leecher){
+  if (select_download_piece(&bt_args) != -1){ //we want to download
     leecher_loop(&bt_args);
   }
   

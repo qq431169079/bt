@@ -19,53 +19,6 @@
 #include "bt_setup.h"
 #define max( a, b ) ( ((a) > (b)) ? (a) : (b) )
 
-/* local copy function. Used only for a restart when we want to
- * copy the previously saved as file to the current file we will use
- */
-int __fcopy__(char *source, char *dest){
-    FILE *d, *s;
-    char *buffer;
-    size_t incount;
-    long totcount = 0L;
-
-    s = fopen(source, "rb");
-    if(s == NULL)
-            return -1L;
-
-    d = fopen(dest, "wb");
-    if(d == NULL)
-    {
-            fclose(s);
-            return -1L;
-    }
-
-    buffer = malloc(MAXSIZE);
-    if(buffer == NULL)
-    {
-            fclose(s);
-            fclose(d);
-            return -1L;
-    }
-
-    incount = fread(buffer, sizeof(char), MAXSIZE, s);
-
-    while(!feof(s))
-    {
-            totcount += (long)incount;
-            fwrite(buffer, sizeof(char), incount, d);
-            incount = fread(buffer, sizeof(char), MAXSIZE, s);
-    }
-
-    totcount += (long)incount;
-    fwrite(buffer, sizeof(char), incount, d);
-
-    free(buffer);
-    fclose(s);
-    fclose(d);
-
-    return totcount;
-}
-
 
 //fill the listen buffer with the necessary info
 //set the listening port to the current default 
@@ -318,6 +271,7 @@ int read_from_peer(peer_t *peer, bt_msg_t *msg, bt_args_t *args) {
   else{
     switch(msg->bt_type){
       case BT_BITFIELD:
+        printf("received bitfield message\n");
         if (args->verbose)
           printf("received bitfield message\n");
         sprintf(log_msg, "MESSAGE RECEIVED :{BITFIELD} from %s\n", ip);
@@ -372,6 +326,7 @@ int read_from_peer(peer_t *peer, bt_msg_t *msg, bt_args_t *args) {
         break;
 
       case BT_INTERESTED:
+        printf("received interested message from %s\n", ip );
         if (args->verbose)
           printf("received interested message from %s\n", ip );
         sprintf(log_msg, "MESSAGE RECEIVED :{INTERESTED} from %s\n",ip);
@@ -380,6 +335,7 @@ int read_from_peer(peer_t *peer, bt_msg_t *msg, bt_args_t *args) {
         break;
 
       case BT_NOT_INTERESTED:
+        printf("received not interested message from %s\n", ip );
         if (args->verbose)
           printf("received not interested message from %s\n", ip );
         sprintf(log_msg, "MESSAGE RECEIVED :{NOT_INTERESTED} from %s\n",ip);
@@ -915,3 +871,52 @@ void intro(){
   printf("===================================================================\n");
   return;
 }
+
+/* local copy function. Used only for a restart when we want to
+ * copy the previously saved as file to the current file we will use
+ */
+int __fcopy__(char *source, char *dest){
+    FILE *d, *s;
+    char *buffer;
+    size_t incount;
+    long totcount = 0L;
+
+    s = fopen(source, "rb");
+    if(s == NULL)
+            return -1L;
+
+    d = fopen(dest, "wb");
+    if(d == NULL)
+    {
+            fclose(s);
+            return -1L;
+    }
+
+    buffer = malloc(MAXSIZE);
+    if(buffer == NULL)
+    {
+            fclose(s);
+            fclose(d);
+            return -1L;
+    }
+
+    incount = fread(buffer, sizeof(char), MAXSIZE, s);
+
+    while(!feof(s))
+    {
+            totcount += (long)incount;
+            fwrite(buffer, sizeof(char), incount, d);
+            incount = fread(buffer, sizeof(char), MAXSIZE, s);
+    }
+
+    totcount += (long)incount;
+    fwrite(buffer, sizeof(char), incount, d);
+
+    free(buffer);
+    fclose(s);
+    fclose(d);
+
+    return totcount;
+}
+
+
