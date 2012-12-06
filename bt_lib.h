@@ -174,5 +174,6 @@ int get_bitfield(bt_args_t * bt_args, bt_bitfield_t *bitfield); //which pieces I
 int update_bitfield(peer_t *peer, int piece); //update peer's bitfield
 int sha1_piece(char *piece, int length, unsigned char *hash); //hash of piece
 int contact_tracker(bt_args_t * bt_args); //contact tracker for more details
+void __CLEANUP__(bt_args_t *args); //clean up all dynamic memory 
 int __fcopy__(char *source, char *dest);
 #endif

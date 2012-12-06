@@ -23,6 +23,8 @@
 #define min( a, b ) ( ((a) < (b)) ? (a) : (b) )
 
 int LIVENESS_CHECK_PENDING = 0;
+int KEEP_ALIVE = 1; //keep ourselves alive
+int SEEDING = FALSE; //defaukt is to leech first
 
 //our signal handler for use with checking the current health and
 //aliveness of all peers we currently know of.
@@ -32,6 +34,12 @@ void handler(int signum){ //signal handler
   switch(signum){
     case SIGALRM:
       LIVENESS_CHECK_PENDING = 1; //read to check!
+      break;
+    case SIGINT:
+      if (SEEDING)
+        KEEP_ALIVE = 0; //we can now exit
+      else
+        exit(1); //if we are not seeding yet, just die
       break;
     case SIGPIPE:
       break; //do nothing when you get a sigpipe
@@ -108,10 +116,7 @@ int main(int argc, char * argv[]){
   int pollrv; //return value from the call to poll()
   unsigned short port;
   fd_set listen_set;
-  int current = 0; //current piece being analyzed
-  int previous = -100; //magic number
   char log_entry[80];
-  //bt_request_t request; //reusable request message
   parse_args(&bt_args, argc, argv);
  
   //print header
@@ -159,6 +164,7 @@ int main(int argc, char * argv[]){
   //register some signals and fire them!
   signal(SIGALRM, handler);
   signal(SIGPIPE, handler);
+  signal(SIGINT, handler);
   alarm(LIFEPERIOD); //set the alarm to check for liveness of peers
 
   //send out interested or not-interested messages
@@ -170,7 +176,8 @@ int main(int argc, char * argv[]){
     leecher_loop(&bt_args);
   }
   
-  while(1){
+  while(KEEP_ALIVE){
+    SEEDING = TRUE; //we have now started seeding
     //accept a client connection
     FD_ZERO(&listen_set); //initialize
     FD_SET(sockfd, &listen_set); //make sockfd a non-blocking listener
@@ -238,42 +245,7 @@ int main(int argc, char * argv[]){
       alarm(LIFEPERIOD); //reset the alarm
       LIVENESS_CHECK_PENDING = 0;
     }
-
-    //select piece to download and send out the message
-    current = select_download_piece(&bt_args);
-    //send the request for the current piece
-    //for loop here to get blocks of each piece
-    /*
-    if (current != -1){
-      //only send request for next once we have the current requested piece
-      printf("sending out bt_request for piece %d\n", current);
-      blocks_requested = 0;
-      while(!(piece_download_complete(&bt_args, current))){
-        request.index = current;
-        request.begin = blocks_requested;
-        request.length = MAXBLOCK; 
-
-        msg.length = sizeof(bt_request_t);
-        msg.bt_type = BT_REQUEST;
-        msg.payload.request = request;
-        send_all(&bt_args, &msg); //send out the request message to all peers
-        blocks_requested += MAXBLOCK;
-      }
-    }
-    */
-    previous = current; //keep track of the last piece that was downloaded
-    //poll current peers for incoming traffic
-    //   write pieces to files
-    //   udpdate peers choke or unchoke status
-    //   responses to have/havenots/interested etc.
-    
-    //for peers that are not choked
-    //   request pieaces from outcoming traffic
-
-    
-    //update peers, 
   }
-  fclose(bt_args.fp);
-  fclose(bt_args.fin);
+  __CLEANUP__(&bt_args);
   return 0;
 }

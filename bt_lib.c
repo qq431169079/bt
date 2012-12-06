@@ -774,6 +774,28 @@ void intro(){
   return;
 }
 
+//finalize the application, reclaim all dynamic memory 
+//and stuff. Close all sockets and file descriptors
+void __CLEANUP__(bt_args_t *args){
+  int i;
+  for (i=0;i<MAX_CONNECTIONS;i++){
+    if (args->peers[i]){
+      close(args->peers[i]->sockfd); //close the socket
+      free(args->peers[i]); //reclaim the dynamic memory
+    }
+  }
+ 
+  for (i=0;i<args->bt_info->num_pieces;i++){
+    free(args->bt_info->piece_hashes[i]);
+  }
+  free(args->bt_info->piece_hashes); //free the array
+  
+  //close the file descriptors
+  fclose(args->fp);
+  fclose(args->fin);
+  printf("Resources released, file descriptors closed\n");
+}
+
 /* local copy function. Used only for a restart when we want to
  * copy the previously saved as file to the current file we will use
  */
