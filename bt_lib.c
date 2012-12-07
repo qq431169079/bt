@@ -451,7 +451,7 @@ int parse_bt_info(bt_info_t *info, be_node *node){
     if (f_num_pieces > num_pieces)
       num_pieces += 1;
     info->num_pieces = max(1,num_pieces);
-    //TODO reclaim all this dynamic memory when we close the application
+    
     hashes = (char **)malloc(sizeof(char *)*num_pieces);
     for(i=0;i<num_pieces;i++){
       hashes[i] = (char *)malloc(HASH_UNIT);
