@@ -56,6 +56,7 @@
 #define MAXBLOCK 1024 //max block size. Standard length
 #define MAXMSG 1500 //size of largest message
 #define LIFEPERIOD 600 //seconds before we determine whether peer is dead
+#define TMPFILE "__TMP__"
 
 typedef struct {
   int size;  //number of bytes for the bitfield

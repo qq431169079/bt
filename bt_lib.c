@@ -793,7 +793,6 @@ void __CLEANUP__(bt_args_t *args){
   //close the file descriptors
   fclose(args->fp);
   fclose(args->fin);
-  printf("Resources released, file descriptors closed\n");
 }
 
 /* local copy function. Used only for a restart when we want to

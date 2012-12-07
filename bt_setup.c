@@ -153,6 +153,8 @@ void parse_args(bt_args_t * bt_args, int argc,  char * argv[]){
     case 'r': //restart
       bt_args->restart = 1;
       strncpy(bt_args->saved_as, optarg, FILE_NAME_MAX);
+      __fcopy__(bt_args->saved_as, TMPFILE);
+      strncpy(bt_args->saved_as, TMPFILE, FILE_NAME_MAX);
       break;
     case 'b': //port number
       bt_args->port = atoi(optarg);

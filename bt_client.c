@@ -140,8 +140,10 @@ int main(int argc, char * argv[]){
   node = load_be_node(bt_args.torrent_file);
   parse_bt_info(&bt_info, node);
   bt_args.bt_info = &bt_info;
-  if (bt_args.restart) //handle restarts
+  if (bt_args.restart){ //handle restarts
     __fcopy__(bt_args.saved_as, bt_args.bt_info->name); //backup the partial
+    remove(TMPFILE); //get rid of tmp file
+  }
 
   //NOTE: opening with 'a+' to take care of situation when file doesnt exist
   bt_args.fin = fopen(bt_args.bt_info->name, "a+"); //open the source file
