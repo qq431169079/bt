@@ -171,13 +171,14 @@ int main(int argc, char * argv[]){
 
   //send out interested or not-interested messages
   send_interested(&bt_args);
-
-  //main client loop
-  printf("Starting Main Loop\n");
+  
+  //handle anything we might want to download
   if (select_download_piece(&bt_args) != -1){ //we want to download
     leecher_loop(&bt_args);
   }
   
+  //main client loop
+  printf("Starting Main Loop\n"); 
   while(KEEP_ALIVE){
     SEEDING = TRUE; //we have now started seeding
     //accept a client connection

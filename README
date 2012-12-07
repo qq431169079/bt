@@ -1,23 +1,87 @@
 myTORRENT (c) 2012
 CS43 Lab 05
-Steve Dini : sdini1
+Steve Dini    : sdini1
+Craig Pentack : cpentra1 
 ***************************************************************
+CONTENTS
+0. Introduction
+1. Included Files and Purpose
+2. Handling Client Failures
+3. Handling Restarts
+4. Handling Multiple Peers
+5. Log File
+6. Verbose Output
+
+0. This is the README file for the bittorrent lab
+==================================================
+a)Modus Operandi
+++++++++++++++++
+We tried to follow Cohen's specification as much as possible. We made a slight
+deviation from it though in that we assumed the starting architecture of 1 
+seeder-multiple peers. So what happens is, a leecher first downloads all the 
+pieces of the file they need and once they have that, they start acting as a 
+seeder and respond to any further peers to the swarm in the capacity of a 
+seeder.
+
+b)Difficulties and what we achieved
++++++++++++++++++++++++++++++++++++
+We had some initially difficulty as we set to create an n-peers architecture 
+from the get go. We ended up toning it down to 1 seeder-n leechers and then 
+added functionality from there. As explained above, we have a system that 
+closely approaches 1-seeder-N-peers with a slight twist to it. 
+  We also were having some slight issues when downloading a file. As explained
+to you earlier, we having that issue that the received file was have extraneous
+^@ characters written into the file. There were only 2 characters at the end 
+of the pieces. We tried multiple approaches to try and fix this which ranged 
+from changing the length of the message written to the file, changing how much
+we fseek'd and stuff but in the grand scheme of things the current implementation
+seemed to work best, albeit the recurring ^@ at the end of each piece. As a
+result of this program, our functionality for handling restarts is a bit affected
+but the code is there and has been tested for quality and works well unless this
+^@ problem is there.
+
+NB: Besides the problem stated above, I would argue that our functionality matches
+1 seeder, n-peers with restarts. 
+
+c)Extra Credit
+++++++++++++++
+We are planning to getting our client to work with Maher and Danny's group. However
+since they are still getting their client to work, we will only be able to demo 
+this as of some time next week. In the event that their client is not up to speed,
+we might resort to getting another group's client to work with ours.
+
+d)Easter Eggs
++++++++++++++
+I have included a progress bar with the download status message. I am doing a 
+printf on \r on each print so that only one message appears at any given time and 
+illusion of a moving progress bar is given. For some reason this seems broken and
+the status message is printed out on multiple lines.
+
+We also included a __CLEANUP__() routine, that frees any dynamically allocated 
+memory, closes all sockets and closes any open FILE * objects before the 
+application terminates. We added a signal handler that directs you to this 
+functionality of the SIGINT signal is ever generated at any point.
 
 1. Included Files and Purpose
 =============================
 bt_client.c   :   Main file where the control loop lives
 bt_setup.c    :   Contains setup code, such as parsing arguments
-bencode.c     :   Code for parsing bencoded torrent files
+bencode.c     :   Provided code for bencoded files
 bt_lib.c      :   Code for core functionality of bt
+bt_connect.c  :   Code for handshaking and other initiation tasks 
+bt_message.c  :   Functions for building specific messages (e.g. unchoke_message)
 
 bt_setup.h    :   Header file for setup
 bencode.h     :   Header file for bencode
 bt_lib.h      :   Header file for bt_lib
+bt_connect.h  :   Header file for bt_connect
+bt_message.h  :   Header file for bt_message
 
-Suggested Additional Files [and headers]
-
-bt_io.c[.h]   :   File for handing input output
-bt_sock.c[.h] :   File for handling socket and network issues
+download.txt  :   Our downloaded version of the file moby_dick.txt that was 
+                  pointed to by the appropriate torrent file. NB file contains
+                  the mentioned ^@ characters.
+download.mp3  :   A incomplete download of 62-Q2.mp3. Plays reasonably well
+                  through itunes
 
 2. Handling Client Failures
 ===========================
@@ -36,13 +100,57 @@ connections that might want to share data with us.
 
 3. Handling Restarts
 ====================
+We added a -r flag that allows you to specify the current download as restarting
+download. The -r flag takes an additional argument which is the name the file
+was previously saved as. We also wrote a __fcopy__() routine for copying files.
+The idea behing this strategy is that if we specify a download as a restarting
+download, we can copy the file to the expected filename that will be used when
+building the bitfield and in essence not have to send out any extra request for
+file pieces we already have. 
 
 4. Handling Multiple Peers
 ==========================
+We built in support for handling multiple peers (at least up to MAX_CONNECTIONS).
+We used select() for listening for multiple incoming initial connections. This
+sounded like the most natural option is as far as the battle between select() and
+poll() is concerned.
+  When listening for incoming messages from peers, we however used poll() as this
+worked really well with the architecture we had in mind. In this respect, calls to
+accept() are never blocking since we only call accept when we actually have 
+something to accept. Calls to read a message from a peer are also non-blocking using
+the same rational and argument.
 
-5. Logfile
-==========
+5. Log File
+===========
+The log file, bt-client.log, produces output based upon client activity.  As such, 
+the output will largely depend on whether the client is downloading or uploading a
+file. 
 
-6. 
+In either scenario, initially the log file tracks the handshake.  After the handshake
+is complete, granted it is successful, the leecher log file should indicate that 
+a bitfield message was sent and the seeder log file should indicate that a bitfield
+message was received.  At this stage the seeder begins sending data to the leecher.  
 
+As the data transfer depends upon piece requests from the leecher to the seeder,
+the leecher log should alternate status updates between piece messages received 
+and have messages sent.  As a have message is only sent after an entire piece is
+transferred, there will be many more piece messages received than have messages
+sent.  Once the file transfer is complete the leecher log file indicates this not
+only by a final have message, but also by output to the log file marking the 
+completion.  In the seeder log during the data transfer, output should alternate 
+between request messages received and piece messages sent. 
+
+6. Verbose Output
+=================
+When the -v flag is set, our program provides verbose output.  The additional 
+information sent to the screen includes how many bytes were sent to the line
+whenever sending blocks to another client, which message types are received, 
+and the bits of a bitfield whenever it is calculated.  
+
+Specifically, the verbose output flag instructs these functions within bt_lib.c
+to provide certain output.
+- send blocks: tells how many bytes were sent onto the line
+- read_from_peer: tells which message type was received, and additionally, in 
+the case of a request message, that a send_blocks response was sent.
+- get_bitfield: prints the bitfield
 
