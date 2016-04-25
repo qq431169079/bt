@@ -10,7 +10,6 @@
 #include "bt_lib.h"
 #include "bencode.h"
 
-void fill_listen_buff(struct sockaddr_in *destaddr, int port);
 void extract_attributes(be_node *node, bt_info_t *info);
 //int receive_handshake(int sockfd, bt_args_t *args);
 //int send_handshake(int sockfd, bt_args_t *args);

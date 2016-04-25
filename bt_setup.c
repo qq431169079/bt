@@ -8,7 +8,6 @@
 #include "bt_lib.h"
 #include "bencode.h"
 
-
 /**
  * usage(FILE * file) -> void
  *
@@ -26,12 +25,13 @@ void usage(FILE * file){
           "  -h            \t Print this help screen\n"
           "  -b port         \t Bind to this ip for incoming connections, ports\n"
           "                \t are selected automatically\n"
-          "  -s save_file  \t Save the torrent in directory save_dir (dflt: .)\n"
+          "  -s save_file  \t Save the torrent in directory save_dir (dflt: download.bt)\n"
           "  -l log_file   \t Save logs to log_filw (dflt: bt-client.log)\n"
           "  -p ip:port    \t Instead of contacing the tracker for a peer list,\n"
           "                \t use this peer instead, ip:port (ip or hostname)\n"
           "                \t (include multiple -p for more than 1 peer)\n"
           "  -I id         \t Set the node identifier to id (dflt: random)\n"
+          "  -r filename   \t This is a restart. Filename is the previous name we saved the file\n"
           "  -v            \t verbose, print additional verbose info\n");
 }
 
@@ -88,7 +88,7 @@ void __parse_peer(peer_t * peer, char * peer_st){
 
 
   //calculate the id, value placed in id
-  calc_id(ip,port,id);
+  calc_id(ip,INIT_PORT,id);
 
   //build the object we need
   init_peer(peer, id, ip, port);
@@ -112,7 +112,6 @@ void parse_args(bt_args_t * bt_args, int argc,  char * argv[]){
   int ch; //ch for each flag
   int n_peers = 0;
   int i;
-
   /* set the default args */
   bt_args->verbose=0; //no verbosity
   
@@ -120,15 +119,17 @@ void parse_args(bt_args_t * bt_args, int argc,  char * argv[]){
   memset(bt_args->save_file,0x00,FILE_NAME_MAX);
   memset(bt_args->torrent_file,0x00,FILE_NAME_MAX);
   memset(bt_args->log_file,0x00,FILE_NAME_MAX);
+  memset(bt_args->saved_as,0x00,FILE_NAME_MAX);
   
   //null out file pointers
-  bt_args->f_save = NULL;
+  bt_args->fp = NULL;
 
   //null bt_info pointer, should be set once torrent file is read
   bt_args->bt_info = NULL;
   bt_args->ip = NULL;
   //default lag file
   strncpy(bt_args->log_file,"bt-client.log",FILE_NAME_MAX);
+  strncpy(bt_args->save_file,"download.bt",FILE_NAME_MAX);
   
   for(i=0;i<MAX_CONNECTIONS;i++){
     bt_args->peers[i] = NULL; //initially NULL
@@ -136,9 +137,11 @@ void parse_args(bt_args_t * bt_args, int argc,  char * argv[]){
 
   //bt_args->id = NULL;
   bt_args->port = INIT_PORT;
-  bt_args->leecher = 1; //leecher
+  bt_args->leecher = 0; //leecher
+  bt_args->downloading = 0; //current downloading piece. Set to random #
+  bt_args->restart = 0; //is this a restart?
 
-  while ((ch = getopt(argc, argv, "hp:s:l:vI:b:")) != -1) {
+  while ((ch = getopt(argc, argv, "hr:p:s:l:vI:b:")) != -1) {
     switch (ch) {
     case 'h': //help
       usage(stdout);
@@ -146,6 +149,12 @@ void parse_args(bt_args_t * bt_args, int argc,  char * argv[]){
       break;
     case 'v': //verbose
       bt_args->verbose = 1;
+      break;
+    case 'r': //restart
+      bt_args->restart = 1;
+      strncpy(bt_args->saved_as, optarg, FILE_NAME_MAX);
+      __fcopy__(bt_args->saved_as, TMPFILE);
+      strncpy(bt_args->saved_as, TMPFILE, FILE_NAME_MAX);
       break;
     case 'b': //port number
       bt_args->port = atoi(optarg);
@@ -157,8 +166,7 @@ void parse_args(bt_args_t * bt_args, int argc,  char * argv[]){
       strncpy(bt_args->log_file,optarg,FILE_NAME_MAX);
       break;
     case 'p': //peer
-      bt_args->leecher = 0;
-      n_peers++;
+      bt_args->leecher = 1;
       //check if we are going to overflow
       if(n_peers > MAX_CONNECTIONS){
         fprintf(stderr,"ERROR: Can only support %d initial peers",MAX_CONNECTIONS);
@@ -170,6 +178,7 @@ void parse_args(bt_args_t * bt_args, int argc,  char * argv[]){
 
       //parse peers
       __parse_peer(bt_args->peers[n_peers], optarg);
+      n_peers++;
       break;
     case 'I':
       //bt_args->id = atoi(optarg);
@@ -180,7 +189,6 @@ void parse_args(bt_args_t * bt_args, int argc,  char * argv[]){
       exit(1);
     }
   }
-
 
   argc -= optind;
   argv += optind;
@@ -193,7 +201,9 @@ void parse_args(bt_args_t * bt_args, int argc,  char * argv[]){
 
   //copy torrent file over
   strncpy(bt_args->torrent_file,argv[0],FILE_NAME_MAX);
-
+  
+  //open the file to download to
+  bt_args->fp = fopen(bt_args->save_file, "wb+");
   return ;
 }
 

@@ -5,36 +5,13 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#include <sys/poll.h>
 
 #include "bt_connect.h"
 #include "bt_lib.h"
+#include "bt_message.h"
 #include <openssl/sha.h>
 #include "bencode.h"
-
-//fill the listen buffer with the necessary info
-//set the listening port to the current default 
-void fill_listen_buff(struct sockaddr_in *destaddr, int port){
-  struct hostent *hostinfo;
-  char ip[NAME_MAX];
-  if (gethostname(ip, NAME_MAX) < 0){
-    perror("gethostbyname");
-    exit(1);
-  }
-  
-  if(!(hostinfo = gethostbyname(ip))){  
-    fprintf(stderr,"ERROR: Invalid host name %s",ip);
-    usage(stderr);
-    exit(1);
-  }
-  
-  destaddr->sin_family = hostinfo->h_addrtype;
-  bcopy((char *) hostinfo->h_addr,
-        (char *) &(destaddr->sin_addr.s_addr),
-        hostinfo->h_length);
-  
-  destaddr->sin_port = htons(port);
-  
-}
 
 /***********************************************************
  * pass in a be_node and extract necessary attributes
@@ -82,19 +59,23 @@ void extract_attributes(be_node *node, bt_info_t *info){
 
 int __verify__(char *fname, char first, char *name, char *chaff, char *id, char *hash, 
                char *ip, unsigned short port){
+  int failed = FALSE;
   //start verification
   if ((first  & 0x13) != 0x13){
     printf("Failed on the first byte.\n");
+    failed = TRUE;
     return FALSE;
   }
 
   if (strncmp(name, "BitTorrent Protocol", 19) != 0){
     printf("Failed on Protocol Name \n");
+    failed = TRUE;
     return FALSE;
   }
 
   if (strncmp(chaff, "00000000", 8) != 0){
     printf("Failed on chaff buffer\n");
+    failed = TRUE;
     return FALSE;
   }
 
@@ -103,17 +84,16 @@ int __verify__(char *fname, char first, char *name, char *chaff, char *id, char 
   SHA1((unsigned char *) fname, strlen(fname), info_hash);
   
   if (memcmp(hash, info_hash, 20) != 0){
-    printf("Failed on the hash\n");
+    printf("failed on the file hash\n");
     return FALSE;
   }
 
   char id_val[20];
-  calc_id(ip, port, id_val);
+  calc_id(ip, INIT_PORT, id_val);
   
-  //if (memcmp(id, id_val, 20) != 0){
-  //   printf("Failed on the hash\n");
-  //   return ERR;
-  //}
+  if (memcmp(id, id_val, 20) != 0){
+     failed = TRUE;
+  }
   return TRUE;
 
 }
@@ -191,6 +171,7 @@ void handshake_all(bt_args_t *args){
   int i;
   int sockfd;
   struct sockaddr_in sockaddr, handshake_addr;
+  bt_msg_t msg; //message structure
   char *fname = args->bt_info->name;
   char *ip;
   int port;
@@ -210,16 +191,28 @@ void handshake_all(bt_args_t *args){
         perror("connect");
         continue;
       }
-     
+      
+      args->peers[i]->sockfd = sockfd; //backup the socket 
       ip = inet_ntoa(handshake_addr.sin_addr);
       port = ntohs(handshake_addr.sin_port);
       sprintf(init_stats, "HANDSHAKE INIT to peer: %s on port: %d\n", ip, port);
       LOGGER(args->log_file, 1, init_stats);
-      //send_handshake(sockfd, args->bt_info->name, &handshake);
       if (seeder_handshake(sockfd, fname, args->id, handshake_addr)){ 
         sprintf(init_stats, "HANDSHAKE SUCCESS from peer: %s on port: %d\n", ip, port);
         LOGGER(args->log_file, 1, init_stats);
         args->sockets[i] = sockfd;
+        args->poll_sockets[i].fd = sockfd;
+        args->poll_sockets[i].events = POLLIN;
+        
+        //send our bitfield here
+        msg.length = sizeof(bt_bitfield_t);
+        msg.bt_type = BT_BITFIELD;
+        msg.payload.bitfield = args->bitfield;
+        send_to_peer(args->peers[i], &msg); //send out the message
+        read_from_peer(args->peers[i], &msg, args); //listen for bitfield
+        unchoke_message(&msg);
+        send_to_peer(args->peers[i], &msg); //send out the unchoke message
+        
       }
       else{
         sprintf(init_stats, "HANDSHAKE DECLINED from peer: %s on port: %d\n", ip, port);
